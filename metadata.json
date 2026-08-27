@@ -1,0 +1,6 @@
+{
+  "name": "IPC Bug Solution PoC",
+  "description": "Proof of concept solving and diagnosing background IPC and overlay window delivery restrictions on Tecno/HiOS Android 13 devices.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
