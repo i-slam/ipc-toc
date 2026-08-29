@@ -132,17 +132,33 @@ capture_bubble_screenshots() {
   sleep 3
   adb exec-out screencap -p > artifacts/bubble-on-screen.png 2>/dev/null || true
 
-  # Tap the bubble to open the panel. It sits at the top-right, 4dp in, ~52dp across.
+  # Tap the bubble to open the panel. Its centre is 4dp padding + half of 52dp in from the top
+  # right, and the window's y is in pixels, so the dp offsets have to be scaled by the density -
+  # hardcoded pixel guesses miss on a small AVD.
+  local density scale
   size="$(adb shell wm size 2>/dev/null | tr -d '\r' | awk -F': ' '/Physical size/ {print $2}')"
+  density="$(adb shell wm density 2>/dev/null | tr -d '\r' | awk -F': ' '/Physical density/ {print $2}')"
   width="${size%x*}"
   height="${size#*x}"
+  : "${density:=160}"
+
   if [ -n "${width:-}" ] && [ -n "${height:-}" ]; then
-    tap_x=$((width - 70))
-    tap_y=$((320 + 70))
-    echo "-- tapping the bubble at ${tap_x},${tap_y} (screen ${width}x${height})"
+    # 30dp in from the edge, in pixels.
+    scale=$(( (30 * density) / 160 ))
+    tap_x=$((width - scale))
+    tap_y=$((320 + scale))
+    echo "-- screen ${width}x${height} @ ${density}dpi, tapping the bubble at ${tap_x},${tap_y}"
     adb shell input tap "$tap_x" "$tap_y"
     sleep 4
     adb exec-out screencap -p > artifacts/bubble-expanded.png 2>/dev/null || true
+
+    # Identical bytes mean the tap missed and the panel never opened; say so rather than
+    # shipping the same picture twice under two names.
+    if cmp -s artifacts/bubble-on-screen.png artifacts/bubble-expanded.png; then
+      echo "-- WARNING: the expanded shot is identical to the collapsed one, the tap missed"
+    else
+      echo "-- panel opened, second screenshot differs"
+    fi
   fi
 
   ls -l artifacts/*.png 2>/dev/null || echo "(no screenshots captured)"
