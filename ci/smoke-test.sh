@@ -86,13 +86,23 @@ smoke_test_floating_rail() {
   echo
   echo "== floating rail overlay =="
 
+  # Pre-grant everything the arm chain would otherwise ask a human for, so it runs unattended.
   adb shell appops set "$PACKAGE" SYSTEM_ALERT_WINDOW allow || true
+  adb shell pm grant "$PACKAGE" android.permission.READ_CALL_LOG || true
+  adb shell pm grant "$PACKAGE" android.permission.READ_PHONE_STATE || true
+  adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS || true
+  adb shell dumpsys deviceidle whitelist "+$PACKAGE" || true
+
   adb logcat -c || true
-  adb shell am start-foreground-service -n "$PACKAGE/com.example.service.FloatingRailService" || true
-  sleep 8
+
+  # The service is exported="false" on purpose, so adb cannot start it directly. Go through the
+  # arm shortcut, which is exported - that also exercises the real one-tap path end to end.
+  adb shell am start -a com.example.action.QUICK_ARM \
+    -n "$PACKAGE/com.example.QuickActionActivity"
+  sleep 12
 
   local log
-  log="$(adb logcat -d -s FloatingRailService:* AndroidRuntime:E 2>/dev/null)"
+  log="$(adb logcat -d 2>/dev/null | grep -E "FloatingRailService|QuickActionActivity|AndroidRuntime" || true)"
   echo "$log" | tail -30
 
   if echo "$log" | grep -q "Floating rail added to the window manager"; then
