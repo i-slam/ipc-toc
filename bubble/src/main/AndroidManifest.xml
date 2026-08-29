@@ -20,6 +20,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Shows the button straight away when the overlay grant is already in place. -->
+            <intent-filter>
+                <action android:name="com.example.bubble.action.SHOW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <service

@@ -56,11 +56,22 @@ class BubbleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Deep link for launcher shortcuts and automation: show the button without a tap, as
+        // long as the grant it needs is already in place.
+        if (intent?.action == ACTION_SHOW && Settings.canDrawOverlays(this)) {
+            BubbleOverlayService.show(this)
+        }
+
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 BubbleSetupScreen()
             }
         }
+    }
+
+    companion object {
+        const val ACTION_SHOW = "com.example.bubble.action.SHOW"
     }
 }
 

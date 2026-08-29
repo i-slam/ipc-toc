@@ -105,7 +105,8 @@ smoke_test_floating_rail() {
   log="$(adb logcat -d 2>/dev/null | grep -E "FloatingRailService|QuickActionActivity|AndroidRuntime" || true)"
   echo "$log" | tail -30
 
-  if echo "$log" | grep -q "Floating rail added to the window manager"; then
+  # Logged by OverlayWindowService under the subclass's tag once addView succeeds.
+  if echo "$log" | grep -q "Overlay window attached"; then
     if adb logcat -d -b crash | grep -q "FATAL EXCEPTION"; then
       echo "RESULT[floating rail]: FAIL - the overlay attached but something crashed"
       adb logcat -d -b crash | head -60
@@ -145,12 +146,11 @@ smoke_test_bubble_app() {
   adb shell pm grant "$pkg" android.permission.POST_NOTIFICATIONS || true
 
   adb logcat -c || true
-  adb shell am start -n "$pkg/com.example.bubble.BubbleActivity"
-  sleep 8
 
-  # The setup screen is up; starting the overlay is what the button on it does.
-  adb shell am start-foreground-service -n "$pkg/com.example.bubble.BubbleOverlayService" 2>&1 || true
-  sleep 8
+  # The overlay service is exported="false", so drive it through the activity's SHOW action -
+  # the same entry point a launcher shortcut or automation would use.
+  adb shell am start -a com.example.bubble.action.SHOW -n "$pkg/com.example.bubble.BubbleActivity"
+  sleep 12
 
   local log
   log="$(adb logcat -d 2>/dev/null | grep -E "BubbleOverlayService|BubbleActivity|AndroidRuntime" || true)"
