@@ -1,10 +1,10 @@
 # Prebuilt APK
 
 `ipc-solution-poc-swiss-army-slim.apk` — 3.3 MB, minified release build (R8 + resource
-shrinking), checked in so it can be downloaded straight from the repository when the
-Releases page is awkward to reach from a phone.
+shrinking), including the system-wide floating button. Checked in so it can be downloaded
+straight from the repository when the Releases page is awkward to reach from a phone.
 
-    sha256  1f49c85efa8488a95d77844560b00e1fe25c640add0f5e496505f112a52b23bb
+    sha256  97f2d8647062cd49e2bbac2ed516c1fad09d8e619a2311ef45a2bc3f4d609d56
 
 ## Installing
 
@@ -16,10 +16,17 @@ Releases page is awkward to reach from a phone.
 
 ## After first launch
 
-The Swiss-army rail sits on the right edge, mid-screen. Its top slot opens **Last Call
-Info**, which needs the call log permission — the amber card on that page requests it.
-Overlay permission and the battery exemption are further down the rail, and the call-end
-popup will not appear without the overlay grant.
+Tap **Arm everything** — the green rocket at the top of the in-app rail on the right edge.
+It asks for the call permissions, the overlay grant and the battery exemption in one chain,
+starts the engine, and then puts the floating button on screen.
+
+That floating button is the point: it sits above every app, not just this one. Drag it up
+and down, tap it for Last Call Info, the popup trigger, call-end simulation and the engine
+toggle. It comes back after a reboot, and "Hide this button" or the notification's Hide
+action removes it.
+
+Without the overlay grant there is no floating button and no call-end popup — that grant is
+the one that matters most.
 
 ## Rebuilding
 
