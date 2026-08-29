@@ -16,8 +16,10 @@ wait_for_device() {
 
 # Everything the log knows about our package, whichever buffer it landed in.
 dump_app_log() {
+  # head, not tail: the exception type and message are at the TOP of a crash dump, and that is
+  # the only part that names the cause.
   echo "---- crash buffer ----"
-  adb logcat -d -b crash 2>/dev/null | tail -60
+  adb logcat -d -b crash 2>/dev/null | head -120
   echo "---- app / activity-manager lines ----"
   adb logcat -d -b main,system 2>/dev/null \
     | grep -iE "$PACKAGE|AndroidRuntime|FATAL|ActivityManager|ActivityTaskManager|lowmemorykiller|libprocessgroup" \

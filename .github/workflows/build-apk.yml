@@ -57,6 +57,20 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
+      # Runs first: a composition that throws during measure kills the app on launch, and this
+      # catches it in a minute instead of a full emulator round trip.
+      - name: Unit tests
+        run: gradle testDebugUnitTest --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: app/build/reports/tests/**
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Assemble debug APK
         run: gradle assembleDebug --stacktrace
 
@@ -66,9 +80,6 @@ jobs:
           STORE_PASSWORD: ci-ephemeral-key
           KEY_PASSWORD: ci-ephemeral-key
         run: gradle assembleRelease --stacktrace
-
-      - name: Unit tests (call log formatting)
-        run: gradle testDebugUnitTest --tests "com.example.telephony.CallFormatTest" --stacktrace
 
       - name: Stage APKs
         run: |
