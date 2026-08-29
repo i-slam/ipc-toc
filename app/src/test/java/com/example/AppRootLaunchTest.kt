@@ -20,7 +20,8 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(qualifiers = RobolectricDeviceQualifiers.Pixel8, sdk = [36])
+// sdk 30 as well as 36: the first launch crash only reproduced below API 33.
+@Config(qualifiers = RobolectricDeviceQualifiers.Pixel8, sdk = [30, 36])
 class AppRootLaunchTest {
 
   @get:Rule val composeTestRule = createComposeRule()

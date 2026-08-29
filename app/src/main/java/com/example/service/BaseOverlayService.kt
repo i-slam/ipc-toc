@@ -3,7 +3,6 @@ package com.example.service
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.os.Build
 import android.os.IBinder
 import android.os.Process
 import android.provider.Settings
@@ -24,6 +23,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.data.EventSource
 import com.example.data.LogEventBus
+import com.example.data.ProcessInfo
 import com.example.ui.OverlayCard
 
 abstract class BaseOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
@@ -47,7 +47,7 @@ abstract class BaseOverlayService : Service(), LifecycleOwner, SavedStateRegistr
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Process.myProcessName() else "pid ${Process.myPid()}"
+        val processName = ProcessInfo.currentProcessName()
         Log.i(tag, "onCreate (process=$processName)")
         LogEventBus.log(
             source = EventSource.OVERLAY_WINDOW,
@@ -98,7 +98,7 @@ abstract class BaseOverlayService : Service(), LifecycleOwner, SavedStateRegistr
         }
 
         val shownAt = System.currentTimeMillis()
-        val currentProcess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Process.myProcessName() else "pid_${Process.myPid()}"
+        val currentProcess = ProcessInfo.currentProcessName()
         val currentPid = Process.myPid()
 
         val composeView = ComposeView(this).apply {

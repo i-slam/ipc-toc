@@ -95,6 +95,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.EventSource
 import com.example.data.LogEvent
 import com.example.data.LogEventBus
+import com.example.data.ProcessInfo
 import com.example.receiver.ACTION_SHOW_POPUP
 import com.example.receiver.AlarmPingReceiver
 import com.example.service.KeepAliveForegroundService
@@ -298,7 +299,7 @@ private fun DiagnosticLabTab(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
-                        val proc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Process.myProcessName() else "pid ${Process.myPid()}"
+                        val proc = ProcessInfo.currentProcessName()
                         Text(
                             "PID ${Process.myPid()} | $proc",
                             color = Color(0xFF94A3B8),
