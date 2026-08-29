@@ -7,6 +7,8 @@ import android.util.Log
 import com.example.data.AppPrefs
 import com.example.data.EventSource
 import com.example.data.LogEventBus
+import android.provider.Settings
+import com.example.service.FloatingRailService
 import com.example.service.KeepAliveForegroundService
 
 /**
@@ -24,18 +26,32 @@ class BootCompletedReceiver : BroadcastReceiver() {
 
         if (action != Intent.ACTION_BOOT_COMPLETED && action != ACTION_QUICKBOOT_POWERON) return
 
-        if (!AppPrefs.isArmed(context)) {
-            Log.i(TAG, "Not armed before reboot, staying idle")
+        val armed = AppPrefs.isArmed(context)
+        val floating = AppPrefs.isFloatingRailEnabled(context)
+
+        if (!armed && !floating) {
+            Log.i(TAG, "Nothing was running before the reboot, staying idle")
             return
         }
 
         try {
-            KeepAliveForegroundService.start(context)
-            LogEventBus.log(
-                source = EventSource.SYSTEM_DIAGNOSTIC,
-                action = "Restarted After Boot",
-                details = "Keep-alive service restarted from $action"
-            )
+            if (armed) {
+                KeepAliveForegroundService.start(context)
+                LogEventBus.log(
+                    source = EventSource.SYSTEM_DIAGNOSTIC,
+                    action = "Restarted After Boot",
+                    details = "Keep-alive service restarted from $action"
+                )
+            }
+
+            if (floating && Settings.canDrawOverlays(context)) {
+                FloatingRailService.show(context)
+                LogEventBus.log(
+                    source = EventSource.SYSTEM_DIAGNOSTIC,
+                    action = "Floating Rail Restored",
+                    details = "Floating button restored after $action"
+                )
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Could not restart the keep-alive service after boot: ${e.message}")
             LogEventBus.log(

@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.example.data.AppPrefs
 import com.example.data.EventSource
 import com.example.data.LogEventBus
+import com.example.service.FloatingRailService
 import com.example.service.KeepAliveForegroundService
 
 /**
@@ -104,6 +105,12 @@ object QuickArm {
         KeepAliveForegroundService.start(context)
         KeepAliveForegroundService.toggleWakeLock(context, true)
         AppPrefs.setArmed(context, true)
+
+        // With the overlay grant in hand, put the floating bubble on screen too - that is the
+        // whole point of arming, and it saves the user hunting for a separate switch.
+        if (!needsOverlay(context)) {
+            FloatingRailService.show(context)
+        }
 
         val outstanding = buildList {
             if (missingRuntimePermissions(context).isNotEmpty()) add("call permissions")

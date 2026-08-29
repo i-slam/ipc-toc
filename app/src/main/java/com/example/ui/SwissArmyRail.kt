@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.BubbleChart
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
@@ -80,6 +81,7 @@ import com.example.data.DeviceProfile
 import com.example.data.EventSource
 import com.example.data.LogEventBus
 import com.example.receiver.AlarmPingReceiver
+import com.example.service.FloatingRailService
 import com.example.service.KeepAliveForegroundService
 import kotlin.math.roundToInt
 
@@ -118,6 +120,7 @@ fun SwissArmyRail(
 
     val isFgsRunning by KeepAliveForegroundService.isRunning.collectAsStateWithLifecycle()
     val isWakeLockHeld by KeepAliveForegroundService.isWakeLockHeld.collectAsStateWithLifecycle()
+    val isFloatingShowing by FloatingRailService.isShowing.collectAsStateWithLifecycle()
 
     var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var isBatteryIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
@@ -248,6 +251,33 @@ fun SwissArmyRail(
                         Uri.parse("package:${context.packageName}")
                     )
                 )
+            }
+        ),
+        RailAction(
+            label = if (isFloatingShowing) "Floating button on" else "Floating button off",
+            hint = "Bubble on the screen edge, above every app",
+            icon = Icons.Default.BubbleChart,
+            tint = if (isFloatingShowing) Color(0xFF34D399) else Color(0xFF94A3B8),
+            primary = true,
+            active = isFloatingShowing,
+            onClick = {
+                if (isFloatingShowing) {
+                    FloatingRailService.hide(context)
+                } else if (!Settings.canDrawOverlays(context)) {
+                    Toast.makeText(
+                        context,
+                        "Grant \"display over other apps\" first, then tap this again",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    overlayPermissionLauncher.launch(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                    )
+                } else {
+                    FloatingRailService.show(context)
+                }
             }
         ),
         RailAction(

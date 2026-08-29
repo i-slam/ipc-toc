@@ -80,6 +80,36 @@ smoke_test_apk() {
   return 0
 }
 
+# The floating rail is a SYSTEM_ALERT_WINDOW overlay, so a broken window setup shows up as an
+# addView failure at runtime and nowhere else. Grant the appop and check the window attaches.
+smoke_test_floating_rail() {
+  echo
+  echo "== floating rail overlay =="
+
+  adb shell appops set "$PACKAGE" SYSTEM_ALERT_WINDOW allow || true
+  adb logcat -c || true
+  adb shell am start-foreground-service -n "$PACKAGE/com.example.service.FloatingRailService" || true
+  sleep 8
+
+  local log
+  log="$(adb logcat -d -s FloatingRailService:* AndroidRuntime:E 2>/dev/null)"
+  echo "$log" | tail -30
+
+  if echo "$log" | grep -q "Floating rail added to the window manager"; then
+    if adb logcat -d -b crash | grep -q "FATAL EXCEPTION"; then
+      echo "RESULT[floating rail]: FAIL - the overlay attached but something crashed"
+      adb logcat -d -b crash | head -60
+      return 1
+    fi
+    echo "RESULT[floating rail]: PASS - overlay window attached"
+    return 0
+  fi
+
+  echo "RESULT[floating rail]: FAIL - the overlay never attached"
+  adb logcat -d -b crash | head -60
+  return 1
+}
+
 wait_for_device
 
 DEBUG_APK="artifacts/ipc-solution-poc-swiss-army-debug.apk"
@@ -99,13 +129,20 @@ if smoke_test_apk "$SLIM_APK" "minified release"; then
   slim_status=pass
 fi
 
+# Runs against whatever is installed, which at this point is the minified build.
+floating_status=fail
+if [ "$slim_status" = pass ] && smoke_test_floating_rail; then
+  floating_status=pass
+fi
+
 echo
 echo "=================================================================="
 echo "control (debug) : $debug_status"
 echo "minified release: $slim_status"
+echo "floating rail   : $floating_status"
 echo "=================================================================="
 
-if [ "$slim_status" = pass ]; then
+if [ "$slim_status" = pass ] && [ "$floating_status" = pass ]; then
   exit 0
 fi
 

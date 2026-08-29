@@ -116,6 +116,16 @@
             android:exported="false"
             android:process=":overlay" />
 
+        <!-- System-wide floating rail: the bubble that sits above every app -->
+        <service
+            android:name=".service.FloatingRailService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the floating diagnostic tool bubble on screen" />
+        </service>
+
         <!-- Always-on Foreground Service with Special Use & Phone Call types -->
         <service
             android:name=".service.KeepAliveForegroundService"

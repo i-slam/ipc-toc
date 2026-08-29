@@ -10,6 +10,7 @@ object AppPrefs {
 
     private const val FILE = "ipc_poc_prefs"
     private const val KEY_ARMED = "keep_alive_armed"
+    private const val KEY_FLOATING = "floating_rail_enabled"
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -18,5 +19,13 @@ object AppPrefs {
 
     fun setArmed(context: Context, armed: Boolean) {
         prefs(context).edit().putBoolean(KEY_ARMED, armed).apply()
+    }
+
+    /** Whether the system-wide floating rail should be on screen, across reboots. */
+    fun isFloatingRailEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_FLOATING, false)
+
+    fun setFloatingRailEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_FLOATING, enabled).apply()
     }
 }
