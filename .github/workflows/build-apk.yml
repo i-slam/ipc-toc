@@ -11,6 +11,8 @@ jobs:
   build:
     name: Assemble debug APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -62,3 +64,15 @@ jobs:
           path: artifacts/ipc-solution-poc-swiss-army-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish APK as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="apk-build-${{ github.run_number }}"
+          gh release create "$TAG" \
+            artifacts/ipc-solution-poc-swiss-army-debug.apk \
+            --target "${{ github.sha }}" \
+            --title "Debug APK - build ${{ github.run_number }}" \
+            --notes "Debug-signed APK built from ${{ github.ref_name }} at commit ${{ github.sha }}. Allow installs from unknown sources on the phone, then open the APK." \
+            --latest
