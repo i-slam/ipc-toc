@@ -121,6 +121,33 @@ smoke_test_floating_rail() {
   return 1
 }
 
+# Photographs the bubble actually drawn over the screen. The overlay either renders or it does
+# not, and a log line saying addView returned is weaker evidence than the pixels.
+capture_bubble_screenshots() {
+  local width height tap_x tap_y size
+  mkdir -p artifacts
+
+  # Home screen first, so the shot shows the bubble over the launcher rather than over its own app.
+  adb shell input keyevent KEYCODE_HOME
+  sleep 3
+  adb exec-out screencap -p > artifacts/bubble-on-screen.png 2>/dev/null || true
+
+  # Tap the bubble to open the panel. It sits at the top-right, 4dp in, ~52dp across.
+  size="$(adb shell wm size 2>/dev/null | tr -d '\r' | awk -F': ' '/Physical size/ {print $2}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [ -n "${width:-}" ] && [ -n "${height:-}" ]; then
+    tap_x=$((width - 70))
+    tap_y=$((320 + 70))
+    echo "-- tapping the bubble at ${tap_x},${tap_y} (screen ${width}x${height})"
+    adb shell input tap "$tap_x" "$tap_y"
+    sleep 4
+    adb exec-out screencap -p > artifacts/bubble-expanded.png 2>/dev/null || true
+  fi
+
+  ls -l artifacts/*.png 2>/dev/null || echo "(no screenshots captured)"
+}
+
 # The standalone floating-button app: its own package, and its whole point is the overlay, so
 # install it, grant the appop, launch it and require the window to attach.
 smoke_test_bubble_app() {
@@ -163,6 +190,7 @@ smoke_test_bubble_app() {
   fi
 
   if echo "$log" | grep -q "Overlay window attached"; then
+    capture_bubble_screenshots
     echo "RESULT[bubble app]: PASS - launcher screen and overlay window both up"
     return 0
   fi
