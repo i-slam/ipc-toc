@@ -37,21 +37,40 @@ object WhatsAppLauncher {
      * Normalises a call log number to the digits wa.me expects, or null when there is nothing
      * usable - a withheld number, or a local format with no SIM country to resolve it against.
      */
-    fun toWaMeDigits(context: Context, rawNumber: String?): String? {
+    fun toWaMeDigits(context: Context, rawNumber: String?): String? =
+        normalise(rawNumber, platformE164(context, rawNumber))
+
+    /**
+     * The decision, separated from the platform call so it can be tested without a device:
+     * [e164] is whatever `PhoneNumberUtils` made of the number, or null when it could not place it.
+     *
+     * A number that still carries a national trunk prefix after that is deliberately refused.
+     * Passing "07700900123" to wa.me does not fail politely - WhatsApp opens and says the number
+     * is invalid, which looks like the app is broken rather than the number being unresolvable.
+     */
+    fun normalise(rawNumber: String?, e164: String?): String? {
         val raw = rawNumber?.trim().orEmpty()
         if (raw.isEmpty()) return null
 
-        val iso = countryIso(context)
-        val e164 = iso?.let {
-            runCatching { PhoneNumberUtils.formatNumberToE164(raw, it) }.getOrNull()
+        if (e164 != null) {
+            return e164.filter { it.isDigit() }.takeIf { it.length >= MIN_DIGITS }
         }
 
-        // formatNumberToE164 returns null for anything it cannot place, including a local number
-        // with no country context. Falling back to the raw digits still works for numbers that
-        // were already stored internationally.
-        val digits = (e164 ?: raw).filter { it.isDigit() }
+        val digits = raw.filter { it.isDigit() }
 
-        return digits.takeIf { it.length >= MIN_DIGITS }
+        // A leading zero is a trunk prefix, meaningless without a country code.
+        if (raw.trimStart().startsWith("0")) return null
+
+        // Anything shorter than a full international number is a short code or an unresolved
+        // local one; either way it is not a WhatsApp account.
+        return digits.takeIf { it.length >= MIN_INTERNATIONAL_DIGITS }
+    }
+
+    private fun platformE164(context: Context, rawNumber: String?): String? {
+        val raw = rawNumber?.trim().orEmpty()
+        if (raw.isEmpty()) return null
+        val iso = countryIso(context) ?: return null
+        return runCatching { PhoneNumberUtils.formatNumberToE164(raw, iso) }.getOrNull()
     }
 
     private fun countryIso(context: Context): String? {
@@ -97,4 +116,7 @@ object WhatsAppLauncher {
 
     /** Shorter than this and it is an emergency or service code, not something to message. */
     private const val MIN_DIGITS = 6
+
+    /** Without a country to resolve against, only an already-international number is usable. */
+    private const val MIN_INTERNATIONAL_DIGITS = 10
 }
