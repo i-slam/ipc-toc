@@ -13,10 +13,19 @@ import android.os.Process
  */
 object ProcessInfo {
 
-    fun currentProcessName(): String = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> Process.myProcessName()
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> Application.getProcessName()
-        else -> "pid_${Process.myPid()}"
+    fun currentProcessName(): String {
+        // Both accessors are best-effort: they are missing on older platforms and some ROMs and
+        // test runtimes hand back an empty string. A pid is always available, so never report
+        // nothing.
+        val reported = runCatching {
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> Process.myProcessName()
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> Application.getProcessName()
+                else -> null
+            }
+        }.getOrNull()
+
+        return reported?.takeIf { it.isNotBlank() } ?: "pid_${Process.myPid()}"
     }
 
     /** "name (pid)" for the compact readouts in the diagnostic header and the overlay card. */
