@@ -14,6 +14,8 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.example.data.AppPrefs
 import com.example.service.OverlayWindowService
+import com.example.telephony.CallRecord
+import com.example.telephony.WhatsAppLauncher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,10 +69,13 @@ class BubbleOverlayService : OverlayWindowService() {
         return START_STICKY
     }
 
-    private fun handleAction(action: BubbleAction) {
+    // The panel hands over the record it already loaded, so no action re-queries the provider on
+    // the main thread.
+    private fun handleAction(action: BubbleAction, record: CallRecord?) {
         Log.i(TAG, "Bubble action: $action")
         when (action) {
-            BubbleAction.COPY_LAST_CALL -> copyLastCall()
+            BubbleAction.WHATSAPP_LAST_CALL -> whatsAppLastCall(record)
+            BubbleAction.COPY_LAST_CALL -> copyLastCall(record)
             BubbleAction.OPEN_DIALER -> openDialer()
             BubbleAction.OPEN_DIAGNOSTICS -> openDiagnosticsApp()
             BubbleAction.HIDE -> {
@@ -80,8 +85,27 @@ class BubbleOverlayService : OverlayWindowService() {
         }
     }
 
-    private fun copyLastCall() {
-        val record = LastCall.read(this)
+    private fun whatsAppLastCall(record: CallRecord?) {
+        val number = record?.number
+        if (number.isNullOrBlank()) {
+            toast("No number on the last call to message")
+            return
+        }
+
+        if (!WhatsAppLauncher.isInstalled(this)) {
+            toast("WhatsApp is not installed")
+            return
+        }
+
+        // A local-format number with no SIM country cannot be turned into a wa.me link, and
+        // WhatsApp would just show "phone number shared via url is invalid".
+        val failure = WhatsAppLauncher.openChat(this, number)
+        if (failure != null) {
+            toast("$failure: $number")
+        }
+    }
+
+    private fun copyLastCall(record: CallRecord?) {
         if (record == null) {
             toast("No call to copy - grant call log access in the app first")
             return

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dialpad
@@ -46,7 +47,7 @@ import com.example.telephony.CallRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-enum class BubbleAction { COPY_LAST_CALL, OPEN_DIALER, OPEN_DIAGNOSTICS, HIDE }
+enum class BubbleAction { WHATSAPP_LAST_CALL, COPY_LAST_CALL, OPEN_DIALER, OPEN_DIAGNOSTICS, HIDE }
 
 /** Reads the most recent call for the bubble, off the main thread at the call site. */
 object LastCall {
@@ -60,7 +61,7 @@ object LastCall {
  */
 @Composable
 fun BubblePanel(
-    onAction: (BubbleAction) -> Unit,
+    onAction: (BubbleAction, CallRecord?) -> Unit,
     onDragVertically: (Float) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -94,9 +95,9 @@ fun BubblePanel(
 
     ExpandedPanel(
         onCollapse = { expanded = false },
-        onAction = { action ->
+        onAction = { action, record ->
             expanded = false
-            onAction(action)
+            onAction(action, record)
         },
         onDragVertically = onDragVertically
     )
@@ -105,7 +106,7 @@ fun BubblePanel(
 @Composable
 private fun ExpandedPanel(
     onCollapse: () -> Unit,
-    onAction: (BubbleAction) -> Unit,
+    onAction: (BubbleAction, CallRecord?) -> Unit,
     onDragVertically: (Float) -> Unit
 ) {
     val context = LocalContext.current
@@ -180,17 +181,25 @@ private fun ExpandedPanel(
 
             LastCallSummary(record = lastCall, loaded = loaded)
 
+            PanelButton(
+                label = "WhatsApp this number",
+                icon = Icons.Default.Chat,
+                tint = Color(0xFF25D366),
+                background = Color(0xFF11351F)
+            ) {
+                onAction(BubbleAction.WHATSAPP_LAST_CALL, lastCall)
+            }
             PanelButton("Copy details", Icons.Default.ContentCopy) {
-                onAction(BubbleAction.COPY_LAST_CALL)
+                onAction(BubbleAction.COPY_LAST_CALL, lastCall)
             }
             PanelButton("Open dialer", Icons.Default.Dialpad) {
-                onAction(BubbleAction.OPEN_DIALER)
+                onAction(BubbleAction.OPEN_DIALER, lastCall)
             }
             PanelButton("Open diagnostics app", Icons.Default.OpenInNew) {
-                onAction(BubbleAction.OPEN_DIAGNOSTICS)
+                onAction(BubbleAction.OPEN_DIAGNOSTICS, lastCall)
             }
             PanelButton("Hide this button", Icons.Default.Close, Color(0xFFF87171)) {
-                onAction(BubbleAction.HIDE)
+                onAction(BubbleAction.HIDE, lastCall)
             }
         }
     }
@@ -251,13 +260,14 @@ private fun PanelButton(
     label: String,
     icon: ImageVector,
     tint: Color = Color(0xFF7DD3FC),
+    background: Color = Color(0xFF16213A),
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .width(210.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF16213A))
+            .background(background)
             .pointerInput(Unit) { detectTapGestures { onClick() } }
             .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
