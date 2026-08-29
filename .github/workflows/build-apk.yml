@@ -30,29 +30,6 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      # Both keystores are generated fresh for this run and thrown away with the runner.
-      # They only prove the APKs were not tampered with in transit; they are not release keys.
-      - name: Create signing keystores
-        run: |
-          if [ ! -f debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-          keytool -genkeypair -v \
-            -keystore ci-release.keystore \
-            -storepass "$CI_KEYSTORE_PASSWORD" \
-            -alias upload \
-            -keypass "$CI_KEYSTORE_PASSWORD" \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=IPC Solution PoC CI,O=IPC Solution PoC,C=US"
-        env:
-          CI_KEYSTORE_PASSWORD: ci-ephemeral-key
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -77,11 +54,8 @@ jobs:
       - name: Assemble debug APK
         run: gradle assembleDebug --stacktrace
 
+      # Signing keys come from ci/ in the repo, so each build installs over the last.
       - name: Assemble minified release APK
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/ci-release.keystore
-          STORE_PASSWORD: ci-ephemeral-key
-          KEY_PASSWORD: ci-ephemeral-key
         run: gradle assembleRelease --stacktrace
 
       - name: Stage APKs
@@ -187,5 +161,5 @@ jobs:
           - \`ipc-solution-poc-swiss-army-slim.apk\` - the full diagnostic app, minified.
           - \`ipc-solution-poc-swiss-army-debug.apk\` - the same app unminified, kept as a fallback.
 
-          All are signed with a throwaway CI key, so uninstall any earlier build before installing." \
+          All are signed with the fixed key in ci/, so they install straight over the previous build." \
             --latest

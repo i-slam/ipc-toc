@@ -23,16 +23,18 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  // Fixed keys, committed under ci/, so every build installs over the one before it. A generated
+  // key per build made each APK refuse to update the last with INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+  // These sign sideload builds only - a real release overrides them through the environment.
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      storeFile = file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/ci/ipc-toc-release.keystore")
+      storePassword = System.getenv("STORE_PASSWORD") ?: "ipc-toc-public-ci"
+      keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: "ipc-toc-public-ci"
     }
     create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
+      storeFile = file("${rootDir}/ci/ipc-toc-debug.keystore")
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
