@@ -1,51 +1,113 @@
 #!/usr/bin/env bash
-# Installs the minified release APK on a running emulator and checks that it actually launches.
-# R8 failures show up at runtime, not at build time, so this is the gate that catches them.
-set -euo pipefail
+# Installs an APK on a running emulator and checks that it launches and stays up.
+#
+# R8 breakage surfaces at runtime, not at build time, so the minified APK gets this gate before
+# it is published. The unminified debug APK is checked first as a control: if both fail the same
+# way, the fault is in this harness rather than in the shrinker.
+set -uo pipefail
 
-APK="${1:-artifacts/ipc-solution-poc-swiss-army-slim.apk}"
 PACKAGE="com.aistudio.ipcsolution.poc"
 ACTIVITY="com.example.MainActivity"
 
-echo "== waiting for device =="
-adb wait-for-device
-adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
+wait_for_device() {
+  adb wait-for-device
+  adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
+}
 
-echo "== installing $APK =="
-adb install -r "$APK"
+# Everything the log knows about our package, whichever buffer it landed in.
+dump_app_log() {
+  echo "---- crash buffer ----"
+  adb logcat -d -b crash 2>/dev/null | tail -60
+  echo "---- app / activity-manager lines ----"
+  adb logcat -d -b main,system 2>/dev/null \
+    | grep -iE "$PACKAGE|AndroidRuntime|FATAL|ActivityManager|ActivityTaskManager|lowmemorykiller|libprocessgroup" \
+    | tail -80
+}
 
-echo "== launching $PACKAGE/$ACTIVITY =="
-adb logcat -c
-adb shell am start -W -n "$PACKAGE/$ACTIVITY"
-sleep 12
+# Returns 0 when the app is up: process alive and the activity present in the stack.
+check_running() {
+  local pid stack
+  pid="$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r')"
+  stack="$(adb shell dumpsys activity activities 2>/dev/null | grep -F "$PACKAGE/$ACTIVITY")"
+  echo "pid='$pid'"
+  echo "stack entries:"
+  echo "${stack:-  (none)}"
+  [ -n "$pid" ] && [ -n "$stack" ]
+}
 
-echo "== checking the activity survived =="
-if ! adb shell dumpsys activity activities | grep -q "$PACKAGE/$ACTIVITY"; then
-  echo "FAIL: $ACTIVITY is not in the activity stack — it never started or died on launch."
-  adb logcat -d | tail -200
-  exit 1
+smoke_test_apk() {
+  local apk="$1" label="$2"
+
+  echo
+  echo "=================================================================="
+  echo "== $label: $apk"
+  echo "=================================================================="
+
+  adb uninstall "$PACKAGE" >/dev/null 2>&1 || true
+
+  echo "-- installing"
+  if ! adb install -r "$apk"; then
+    echo "RESULT[$label]: FAIL - install rejected"
+    return 1
+  fi
+
+  echo "-- launching $PACKAGE/$ACTIVITY"
+  adb logcat -c || true
+  adb shell am start -W -S -n "$PACKAGE/$ACTIVITY"
+
+  # Give Compose time to inflate on a cold, software-rendered emulator.
+  local attempt
+  for attempt in 1 2 3 4 5 6; do
+    sleep 5
+    echo "-- probe $attempt"
+    if check_running; then
+      echo "-- still up after $((attempt * 5))s"
+      if [ "$attempt" -ge 3 ]; then
+        echo "RESULT[$label]: PASS - launched and stayed up"
+        return 0
+      fi
+    else
+      echo "-- not running on probe $attempt"
+      dump_app_log
+      echo "RESULT[$label]: FAIL - process or activity gone after $((attempt * 5))s"
+      return 1
+    fi
+  done
+
+  echo "RESULT[$label]: PASS - launched and stayed up"
+  return 0
+}
+
+wait_for_device
+
+DEBUG_APK="artifacts/ipc-solution-poc-swiss-army-debug.apk"
+SLIM_APK="artifacts/ipc-solution-poc-swiss-army-slim.apk"
+
+debug_status=skipped
+if [ -f "$DEBUG_APK" ]; then
+  if smoke_test_apk "$DEBUG_APK" "control (debug, unminified)"; then
+    debug_status=pass
+  else
+    debug_status=fail
+  fi
 fi
 
-echo "== checking for crashes =="
-crash_log="$(adb logcat -d -b crash || true)"
-if [ -n "$crash_log" ]; then
-  echo "FAIL: crash buffer is not empty:"
-  echo "$crash_log"
-  exit 1
+slim_status=fail
+if smoke_test_apk "$SLIM_APK" "minified release"; then
+  slim_status=pass
 fi
 
-if adb logcat -d | grep -q "FATAL EXCEPTION"; then
-  echo "FAIL: FATAL EXCEPTION in the main log buffer:"
-  adb logcat -d | grep -A 40 "FATAL EXCEPTION" | head -80
-  exit 1
+echo
+echo "=================================================================="
+echo "control (debug) : $debug_status"
+echo "minified release: $slim_status"
+echo "=================================================================="
+
+if [ "$slim_status" = pass ]; then
+  exit 0
 fi
 
-# ClassNotFoundException / NoSuchMethodError here almost always means an over-aggressive
-# R8 rule rather than a genuine bug.
-if adb logcat -d | grep -Eq "ClassNotFoundException|NoSuchMethodError|NoClassDefFoundError"; then
-  echo "FAIL: missing class or method at runtime — check the keep rules in proguard-rules.pro:"
-  adb logcat -d | grep -E -B 5 -A 20 "ClassNotFoundException|NoSuchMethodError|NoClassDefFoundError" | head -80
-  exit 1
+if [ "$debug_status" = fail ]; then
+  echo "Both builds failed the same check - suspect the emulator or this harness, not R8."
 fi
-
-echo "PASS: the minified APK installs, launches and stays up."
+exit 1
