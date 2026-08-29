@@ -346,14 +346,10 @@ private fun RailHandle(
     onFlipSide: () -> Unit,
     onDrag: (Float) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = if (expanded) Arrangement.SpaceBetween else Arrangement.Center
-    ) {
+    val toggle: @Composable () -> Unit = {
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(30.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { onToggleExpanded() },
             contentAlignment = Alignment.Center
@@ -370,10 +366,12 @@ private fun RailHandle(
                 modifier = Modifier.size(18.dp)
             )
         }
+    }
 
+    val grip: @Composable () -> Unit = {
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(30.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
@@ -385,16 +383,24 @@ private fun RailHandle(
         ) {
             Icon(
                 imageVector = Icons.Default.DragHandle,
-                contentDescription = "Drag toolbar",
+                contentDescription = "Drag toolbar up or down",
                 tint = Color(0xFF475569),
                 modifier = Modifier.size(18.dp)
             )
         }
+    }
 
-        if (expanded) {
+    if (expanded) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            toggle()
+            grip()
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(30.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .clickable { onFlipSide() },
                 contentAlignment = Alignment.Center
@@ -406,6 +412,15 @@ private fun RailHandle(
                     modifier = Modifier.size(18.dp)
                 )
             }
+        }
+    } else {
+        // Collapsed the rail is only wide enough for one control per line.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            grip()
+            toggle()
         }
     }
 }
