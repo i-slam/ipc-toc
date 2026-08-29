@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Long-press the launcher icon: one tap to the page, the popup, or an armed engine.
+      Every shortcut goes through QuickActionActivity so the extras are built in code - typed
+      extras declared in XML are easy to get subtly wrong.
+    -->
+
+    <shortcut
+        android:shortcutId="last_call"
+        android:enabled="true"
+        android:icon="@drawable/ic_tile_call"
+        android:shortcutShortLabel="@string/shortcut_last_call_short"
+        android:shortcutLongLabel="@string/shortcut_last_call_long">
+        <intent
+            android:action="com.example.action.QUICK_LAST_CALL"
+            android:targetPackage="com.aistudio.ipcsolution.poc"
+            android:targetClass="com.example.QuickActionActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="show_popup"
+        android:enabled="true"
+        android:icon="@drawable/ic_tile_bolt"
+        android:shortcutShortLabel="@string/shortcut_popup_short"
+        android:shortcutLongLabel="@string/shortcut_popup_long">
+        <intent
+            android:action="com.example.action.QUICK_SHOW_POPUP"
+            android:targetPackage="com.aistudio.ipcsolution.poc"
+            android:targetClass="com.example.QuickActionActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="arm_engine"
+        android:enabled="true"
+        android:icon="@drawable/ic_tile_bolt"
+        android:shortcutShortLabel="@string/shortcut_arm_short"
+        android:shortcutLongLabel="@string/shortcut_arm_long">
+        <intent
+            android:action="com.example.action.QUICK_ARM"
+            android:targetPackage="com.aistudio.ipcsolution.poc"
+            android:targetClass="com.example.QuickActionActivity" />
+    </shortcut>
+
+</shortcuts>

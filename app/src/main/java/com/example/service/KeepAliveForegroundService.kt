@@ -22,6 +22,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.MainActivity
+import com.example.data.AppPrefs
 import com.example.data.EventSource
 import com.example.data.LogEventBus
 import com.example.telephony.CallStateMonitor
@@ -82,6 +83,8 @@ class KeepAliveForegroundService : Service() {
                     action = "Stop Requested",
                     details = "Stopping KeepAliveForegroundService"
                 )
+                // Only an explicit stop disarms: a system kill must still restart after boot.
+                AppPrefs.setArmed(this, false)
                 stopForegroundService()
                 return START_NOT_STICKY
             }
@@ -121,6 +124,7 @@ class KeepAliveForegroundService : Service() {
             else -> {
                 startForegroundWithNotification()
                 _isRunning.value = true
+                AppPrefs.setArmed(this, true)
                 LogEventBus.log(
                     source = EventSource.DIRECT_SERVICE,
                     action = "Service Started",

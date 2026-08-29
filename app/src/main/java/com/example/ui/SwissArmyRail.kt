@@ -40,7 +40,9 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Layers
@@ -103,6 +105,7 @@ private data class RailAction(
 @Composable
 fun SwissArmyRail(
     onOpenLastCall: () -> Unit,
+    onQuickArm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -143,6 +146,15 @@ fun SwissArmyRail(
             primary = true,
             highlighted = true,
             onClick = onOpenLastCall
+        ),
+        RailAction(
+            label = "Arm everything",
+            hint = "Grants what is missing, then starts the engine",
+            icon = Icons.Default.RocketLaunch,
+            tint = Color(0xFF34D399),
+            primary = true,
+            active = isFgsRunning && hasOverlayPermission && isBatteryIgnored,
+            onClick = onQuickArm
         ),
         RailAction(
             label = "Direct popup",
@@ -237,6 +249,13 @@ fun SwissArmyRail(
                     )
                 )
             }
+        ),
+        RailAction(
+            label = "Add shade tile",
+            hint = "Toggle the engine from quick settings",
+            icon = Icons.Default.Dashboard,
+            tint = Color(0xFF7DD3FC),
+            onClick = { QuickTiles.requestAddEngineTile(context) }
         ),
         RailAction(
             label = "Copy snapshot",

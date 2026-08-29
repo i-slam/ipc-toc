@@ -94,6 +94,7 @@ fun LastCallInfoScreen(onBack: () -> Unit) {
 
     val isFgsRunning by KeepAliveForegroundService.isRunning.collectAsStateWithLifecycle()
     val isWakeLockHeld by KeepAliveForegroundService.isWakeLockHeld.collectAsStateWithLifecycle()
+    val quickArm = rememberQuickArm()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -228,11 +229,7 @@ fun LastCallInfoScreen(onBack: () -> Unit) {
                     isWakeLockHeld = isWakeLockHeld,
                     hasCallLogPermission = hasPermission,
                     hasPhoneStatePermission = CallLogReader.hasPhoneStatePermission(context),
-                    onArm = {
-                        KeepAliveForegroundService.start(context)
-                        KeepAliveForegroundService.toggleWakeLock(context, true)
-                        Toast.makeText(context, "Call-end pipeline armed", Toast.LENGTH_SHORT).show()
-                    }
+                    onArm = quickArm
                 )
             }
 
@@ -426,7 +423,7 @@ private fun PipelineStatusCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        "Arm pipeline (service + wake lock)",
+                        "Arm everything (permissions + service + wake lock)",
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold

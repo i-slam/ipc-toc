@@ -14,18 +14,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val openLastCall = intent?.getBooleanExtra(EXTRA_OPEN_LAST_CALL, false) == true
+        val startQuickArm = intent?.getBooleanExtra(EXTRA_START_QUICK_ARM, false) == true
 
         setContent {
             MyApplicationTheme(darkTheme = true, dynamicColor = false) {
                 AppRoot(
-                    initialRoute = if (openLastCall) AppRoute.LAST_CALL else AppRoute.DIAGNOSTICS
+                    initialRoute = if (openLastCall) AppRoute.LAST_CALL else AppRoute.DIAGNOSTICS,
+                    autoArm = startQuickArm
                 )
             }
         }
     }
 
     companion object {
-        /** Set by the keep-alive notification action to land straight on the Last Call page. */
+        /** Set by the notification action, the tile and the launcher shortcut. */
         const val EXTRA_OPEN_LAST_CALL = "open_last_call"
+
+        /** Set by the arm shortcut when the permission chain still needs dialogs. */
+        const val EXTRA_START_QUICK_ARM = "start_quick_arm"
     }
 }
