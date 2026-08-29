@@ -256,6 +256,17 @@ class KeepAliveForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val lastCallIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra(MainActivity.EXTRA_OPEN_LAST_CALL, true)
+        }
+        val lastCallPendingIntent = PendingIntent.getActivity(
+            this,
+            2,
+            lastCallIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("IPC Keep-Alive & Call Monitor Active")
             .setContentText("Listening for background events & phone calls")
@@ -268,6 +279,11 @@ class KeepAliveForegroundService : Service() {
                 android.R.drawable.ic_dialog_info,
                 "Test Popup",
                 directTriggerPendingIntent
+            )
+            .addAction(
+                android.R.drawable.ic_menu_call,
+                "Last Call",
+                lastCallPendingIntent
             )
             .build()
     }
