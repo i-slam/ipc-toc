@@ -35,3 +35,18 @@ This file is a snapshot, not build output — it does not update itself. CI
 tests, installs the minified one on an API 30 emulator to confirm it launches, and only
 then publishes them to a GitHub release. To refresh this copy, take the artifact from a
 green run and commit it.
+
+## floating-button.apk — the standalone app
+
+`floating-button.apk` — 795 KB, a second app with its own launcher icon and package
+(`com.aistudio.ipcsolution.bubble`). It contains nothing but the floating button.
+
+    sha256  adbb58fda87dcf057eec8ee3f4d6236d73f55ae163538a306115c7723199118c
+
+Install it on its own — it does not need the diagnostic app. Open it once, tap **Show the
+floating button**, allow the call log and then "display over other apps". Close the screen;
+the button stays. Tapping the bubble shows the last call inline, copies it, opens the dialer,
+or jumps to the diagnostic app when that one happens to be installed too. It returns after a
+reboot, and hides from the bubble itself or its notification.
+
+Both apps can be installed side by side: different packages, separate icons, separate state.
