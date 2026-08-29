@@ -120,6 +120,63 @@ smoke_test_floating_rail() {
   return 1
 }
 
+# The standalone floating-button app: its own package, and its whole point is the overlay, so
+# install it, grant the appop, launch it and require the window to attach.
+smoke_test_bubble_app() {
+  local apk="artifacts/floating-button.apk"
+  local pkg="com.aistudio.ipcsolution.bubble"
+
+  echo
+  echo "== standalone floating button app =="
+
+  if [ ! -f "$apk" ]; then
+    echo "RESULT[bubble app]: FAIL - $apk was not built"
+    return 1
+  fi
+
+  adb uninstall "$pkg" >/dev/null 2>&1 || true
+  if ! adb install -r "$apk"; then
+    echo "RESULT[bubble app]: FAIL - install rejected"
+    return 1
+  fi
+
+  adb shell appops set "$pkg" SYSTEM_ALERT_WINDOW allow || true
+  adb shell pm grant "$pkg" android.permission.READ_CALL_LOG || true
+  adb shell pm grant "$pkg" android.permission.POST_NOTIFICATIONS || true
+
+  adb logcat -c || true
+  adb shell am start -n "$pkg/com.example.bubble.BubbleActivity"
+  sleep 8
+
+  # The setup screen is up; starting the overlay is what the button on it does.
+  adb shell am start-foreground-service -n "$pkg/com.example.bubble.BubbleOverlayService" 2>&1 || true
+  sleep 8
+
+  local log
+  log="$(adb logcat -d 2>/dev/null | grep -E "BubbleOverlayService|BubbleActivity|AndroidRuntime" || true)"
+  echo "$log" | tail -30
+
+  if adb logcat -d -b crash | grep -q "FATAL EXCEPTION"; then
+    echo "RESULT[bubble app]: FAIL - crashed"
+    adb logcat -d -b crash | head -60
+    return 1
+  fi
+
+  if echo "$log" | grep -q "Overlay window attached"; then
+    echo "RESULT[bubble app]: PASS - launcher screen and overlay window both up"
+    return 0
+  fi
+
+  # The activity alone still proves the app installs and starts; say so precisely.
+  if adb shell dumpsys activity activities | grep -q "$pkg"; then
+    echo "RESULT[bubble app]: FAIL - app started but the overlay never attached"
+  else
+    echo "RESULT[bubble app]: FAIL - app did not start"
+  fi
+  adb logcat -d -b crash | head -60
+  return 1
+}
+
 wait_for_device
 
 DEBUG_APK="artifacts/ipc-solution-poc-swiss-army-debug.apk"
@@ -145,14 +202,20 @@ if [ "$slim_status" = pass ] && smoke_test_floating_rail; then
   floating_status=pass
 fi
 
+bubble_status=fail
+if smoke_test_bubble_app; then
+  bubble_status=pass
+fi
+
 echo
 echo "=================================================================="
 echo "control (debug) : $debug_status"
 echo "minified release: $slim_status"
 echo "floating rail   : $floating_status"
+echo "bubble app      : $bubble_status"
 echo "=================================================================="
 
-if [ "$slim_status" = pass ] && [ "$floating_status" = pass ]; then
+if [ "$slim_status" = pass ] && [ "$floating_status" = pass ] && [ "$bubble_status" = pass ]; then
   exit 0
 fi
 

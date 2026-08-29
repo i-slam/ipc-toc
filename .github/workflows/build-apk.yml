@@ -10,6 +10,7 @@ on:
 env:
   APK_DEBUG: artifacts/ipc-solution-poc-swiss-army-debug.apk
   APK_SLIM: artifacts/ipc-solution-poc-swiss-army-slim.apk
+  APK_BUBBLE: artifacts/floating-button.apk
 
 jobs:
   build:
@@ -67,7 +68,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-reports
-          path: app/build/reports/tests/**
+          path: |
+            app/build/reports/tests/**
+            bubble/build/reports/tests/**
           if-no-files-found: ignore
           retention-days: 7
 
@@ -86,6 +89,7 @@ jobs:
           mkdir -p artifacts
           cp app/build/outputs/apk/debug/app-debug.apk "$APK_DEBUG"
           cp app/build/outputs/apk/release/app-release.apk "$APK_SLIM"
+          cp bubble/build/outputs/apk/release/bubble-release.apk "$APK_BUBBLE"
           ls -l artifacts
           echo "### APK sizes" >> "$GITHUB_STEP_SUMMARY"
           du -h artifacts/* >> "$GITHUB_STEP_SUMMARY"
@@ -161,8 +165,9 @@ jobs:
             --title "APKs - build ${{ github.run_number }}" \
             --notes "Built from ${{ github.ref_name }} at commit ${{ github.sha }}.
 
-          - \`ipc-solution-poc-swiss-army-slim.apk\` - minified release build, verified to launch on an emulator. Install this one.
-          - \`ipc-solution-poc-swiss-army-debug.apk\` - unminified debug build, kept as a fallback.
+          - \`floating-button.apk\` - the standalone floating button, its own icon and package, nothing else in it.
+          - \`ipc-solution-poc-swiss-army-slim.apk\` - the full diagnostic app, minified.
+          - \`ipc-solution-poc-swiss-army-debug.apk\` - the same app unminified, kept as a fallback.
 
-          Both are signed with a throwaway CI key, so uninstall any earlier build before installing." \
+          All are signed with a throwaway CI key, so uninstall any earlier build before installing." \
             --latest
