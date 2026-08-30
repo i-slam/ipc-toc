@@ -42,8 +42,11 @@ SUPABASE_ANON_KEY=<your publishable key>
 ```
 
 A build without them still runs; the inventory screen says it has no database configured and
-falls back to whatever that phone last cached. CI builds are in exactly that state, which is why
-the published APKs show an empty inventory.
+falls back to whatever that phone last cached.
+
+For the published APKs to read live stock, the same two values go in as **repository secrets**
+(`Settings → Secrets and variables → Actions`), named `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+The workflow passes them through to the build; with them unset it still succeeds, unconfigured.
 
 Before putting that key in an APK you hand out, check what the `anon` role is allowed to do:
 

@@ -12,6 +12,16 @@ env:
   APK_SLIM: artifacts/ipc-solution-poc-swiss-army-slim.apk
   APK_BUBBLE: artifacts/floating-button.apk
 
+  # The inventory database. Set these as repository secrets to get APKs that read live stock;
+  # leave them unset and the build still succeeds, with the inventory screen saying it has no
+  # database configured. They are read from the environment by bubble/build.gradle.kts.
+  #
+  # Note what setting them means: the key ends up inside a published APK, which anyone can
+  # unpack. That is the normal way to ship a Supabase publishable key and it is safe only while
+  # the anon role is restricted to SELECT on the vehicles table.
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
 jobs:
   build:
     name: Assemble APKs
