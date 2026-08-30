@@ -86,10 +86,11 @@ fun BubblePanel(
     onAction: (BubbleAction, CallRecord?) -> Unit,
     onDragVertically: (Float) -> Unit,
     arcStyle: ArcStyle = ArcStyle.WIDE,
-    hasNewCall: Boolean = false
+    autoPopAt: Long = 0L
 ) {
     var expanded by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf<String?>(null) }
+    var unseenCall by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     var lastCall by remember { mutableStateOf<CallRecord?>(null) }
@@ -103,8 +104,19 @@ fun BubblePanel(
         }
     }
 
+    // A call just ended: re-read the log - the record is new, so whatever was loaded is stale -
+    // then open straight onto it.
+    LaunchedEffect(autoPopAt) {
+        if (autoPopAt <= 0L) return@LaunchedEffect
+        lastCall = withContext(Dispatchers.IO) { LastCall.read(context) }
+        loaded = true
+        unseenCall = true
+        expanded = true
+        panel = ARC_CALL
+    }
+
     val items = listOf(
-        ArcItem(ARC_CALL, Icons.Default.Phone, "Last call and WhatsApp", badge = hasNewCall),
+        ArcItem(ARC_CALL, Icons.Default.Phone, "Last call and WhatsApp", badge = unseenCall),
         ArcItem(ARC_LIST, Icons.AutoMirrored.Filled.FormatListBulleted, "All calls"),
         ArcItem(ARC_DIALER, Icons.Default.Dialpad, "Dialer"),
         ArcItem(ARC_MORE, Icons.Default.Settings, "More actions")
@@ -150,7 +162,10 @@ fun BubblePanel(
                         onAction(BubbleAction.OPEN_DIALER, lastCall)
                     }
 
-                    else -> panel = if (panel == item.id) null else item.id
+                    else -> {
+                        if (item.id == ARC_CALL) unseenCall = false
+                        panel = if (panel == item.id) null else item.id
+                    }
                 }
             },
             onDragVertically = onDragVertically

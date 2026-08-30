@@ -12,11 +12,17 @@ import android.os.Build
 import android.util.Log
 import android.view.Gravity
 import android.widget.Toast
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.app.NotificationCompat
 import com.example.data.AppPrefs
+import com.example.telephony.CallEvent
+import com.example.telephony.CallStateWatcher
 import com.example.service.OverlayWindowService
 import com.example.telephony.CallRecord
 import com.example.telephony.WhatsAppLauncher
+import android.os.Handler
+import android.os.Looper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,9 +36,35 @@ class BubbleOverlayService : OverlayWindowService() {
 
     override val logTag: String = TAG
 
+    private var callWatcher: CallStateWatcher? = null
+
+    /** Bumped when a call ends, which is the signal the panel opens itself on. */
+    private val autoPopAt = MutableStateFlow(0L)
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        startWatchingCalls()
+    }
+
+    /**
+     * The bubble opens itself when a call finishes.
+     *
+     * End, not start: from API 31 a plain telephony listener is told the state but not the
+     * number, so during the ring there is nothing to show. The moment the call ends the provider
+     * has the record, and that is when there is something worth acting on anyway.
+     */
+    private fun startWatchingCalls() {
+        callWatcher = CallStateWatcher(this) { event ->
+            // Checked here rather than at registration, so turning the setting off takes effect
+            // straight away instead of at the next service start.
+            if (event == CallEvent.ENDED && AppPrefs.isAutoPopEnabled(this)) {
+                Handler(Looper.getMainLooper()).postDelayed(
+                    { autoPopAt.value = System.currentTimeMillis() },
+                    CallStateWatcher.CALL_LOG_SETTLE_MS
+                )
+            }
+        }.also { it.start() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -58,9 +90,11 @@ class BubbleOverlayService : OverlayWindowService() {
             initialY = 140,
             gravity = Gravity.BOTTOM or Gravity.END
         ) { onDragVertically ->
+            val popAt by autoPopAt.collectAsState()
             BubblePanel(
                 onAction = ::handleAction,
-                onDragVertically = onDragVertically
+                onDragVertically = onDragVertically,
+                autoPopAt = popAt
             )
         }
 
@@ -206,6 +240,8 @@ class BubbleOverlayService : OverlayWindowService() {
 
     override fun onDestroy() {
         _isShowing.value = false
+        callWatcher?.stop()
+        callWatcher = null
         super.onDestroy()
     }
 

@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.AppPrefs
 import com.example.ui.calllog.CallLogListScreen
 
 /**
@@ -171,6 +173,7 @@ private fun BubbleSetupCard() {
 
             StatusRow("Display over other apps", hasOverlay)
             StatusRow("Bubble on screen", isShowing)
+            AutoPopRow()
 
             Button(
                 onClick = {
@@ -207,6 +210,42 @@ private fun BubbleSetupCard() {
                 fontSize = 11.sp
             )
         }
+    }
+}
+
+/** The one behaviour worth a switch here: whether the bubble opens itself when a call ends. */
+@Composable
+private fun AutoPopRow() {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(AppPrefs.isAutoPopEnabled(context)) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF16213A))
+            .clickable {
+                enabled = !enabled
+                AppPrefs.setAutoPopEnabled(context, enabled)
+            }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Open when a call ends", color = Color(0xFFCBD5E1), fontSize = 12.sp)
+            Text(
+                "Shows who just called, ready to message",
+                color = Color(0xFF64748B),
+                fontSize = 10.sp
+            )
+        }
+        Text(
+            if (enabled) "ON" else "OFF",
+            color = if (enabled) Color(0xFF25D366) else Color(0xFF64748B),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
