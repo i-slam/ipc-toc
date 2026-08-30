@@ -9,6 +9,25 @@ set -uo pipefail
 PACKAGE="com.aistudio.ipcsolution.poc"
 ACTIVITY="com.example.MainActivity"
 
+# POST_NOTIFICATIONS does not exist before API 33, and granting it there prints a stack trace
+# that reads like a failure. Ask the platform first.
+grant_if_known() {
+  local pkg="$1" perm="$2"
+  if adb shell pm list permissions 2>/dev/null | grep -q "$perm"; then
+    adb shell pm grant "$pkg" "$perm" || true
+  else
+    echo "-- $perm does not exist on this API level, skipping"
+  fi
+}
+
+# The accessibility dump, or empty when uiautomator will not run.
+dump_ui() {
+  local name="$1"
+  if adb shell uiautomator dump "/sdcard/$name" >/dev/null 2>&1; then
+    adb shell cat "/sdcard/$name" 2>/dev/null || true
+  fi
+}
+
 wait_for_device() {
   adb wait-for-device
   adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
@@ -188,7 +207,8 @@ smoke_test_bubble_app() {
 
   adb shell appops set "$pkg" SYSTEM_ALERT_WINDOW allow || true
   adb shell pm grant "$pkg" android.permission.READ_CALL_LOG || true
-  adb shell pm grant "$pkg" android.permission.POST_NOTIFICATIONS || true
+  adb shell pm grant "$pkg" android.permission.READ_PHONE_STATE || true
+  grant_if_known "$pkg" android.permission.POST_NOTIFICATIONS
 
   adb logcat -c || true
 
@@ -245,7 +265,13 @@ smoke_test_call_log() {
   # The shell uid does not hold WRITE_CALL_LOG, so the insert is refused and the list has nothing
   # to show - which is how the first run of this check passed without proving anything. On a
   # default (non-Google-APIs) image adb can take root, and root can write the provider.
-  adb root >/dev/null 2>&1 && adb wait-for-device
+  #
+  # Nothing here is silenced any more: a run that failed with no output at all cost a whole cycle
+  # to work out that the seeding, not the app, might be at fault.
+  echo "-- taking root to write the call log provider"
+  adb root || echo "-- adb root refused"
+  adb wait-for-device
+
   adb shell content insert --uri content://call_log/calls \
     --bind number:s:+2348031234567 --bind type:i:3 --bind date:l:"$now" \
     --bind duration:i:0 --bind new:i:1 --bind name:s:CI_Missed_Caller || true
@@ -253,7 +279,26 @@ smoke_test_call_log() {
     --bind number:s:07700900123 --bind type:i:2 --bind date:l:"$((now - 60000))" \
     --bind duration:i:75 --bind new:i:0 --bind name:s:CI_Local_Caller || true
 
+  # Read it straight back while still root. This separates "the seeding failed" - a fault in this
+  # harness - from "seeded fine but the app did not show it", which is a fault in the app. The
+  # previous version only asked afterwards, unrooted, so it always reported a permission error and
+  # said nothing about either.
+  local seeded
+  seeded="$(adb shell content query --uri content://call_log/calls --projection name 2>&1 || true)"
+  echo "-- provider now holds:"
+  echo "$seeded" | head -5
+  if ! echo "$seeded" | grep -q "CI_Missed_Caller"; then
+    echo "RESULT[call log]: FAIL - the seeding itself failed, so the app was never tested"
+    adb unroot >/dev/null 2>&1 || true
+    return 1
+  fi
+
   adb unroot >/dev/null 2>&1 && adb wait-for-device
+
+  # The bubble is still on screen with its panel open from the previous check, and on a 320dp-wide
+  # AVD that panel covers most of the list. Put it away before looking.
+  adb shell am force-stop "$pkg"
+  sleep 2
 
   adb logcat -c || true
   adb shell am start -a com.example.bubble.action.CALL_LOG \
@@ -269,9 +314,19 @@ smoke_test_call_log() {
   mkdir -p artifacts
   adb exec-out screencap -p > artifacts/call-log-list.png 2>/dev/null || true
 
-  dump=""
-  if adb shell uiautomator dump /sdcard/ui-calllog.xml >/dev/null 2>&1; then
-    dump="$(adb shell cat /sdcard/ui-calllog.xml 2>/dev/null || true)"
+  dump="$(dump_ui ui-calllog.xml)"
+
+  # The setup card is the list's first item and fills a short screen, so the rows start below the
+  # fold - and a lazy list never composes what is off screen, so they are missing from the dump
+  # rather than merely invisible. Scroll, then look again.
+  if ! echo "$dump" | grep -q "CI_Missed_Caller"; then
+    echo "-- no rows in view, scrolling the list"
+    adb shell input swipe 160 500 160 120 300
+    sleep 2
+    adb shell input swipe 160 500 160 120 300
+    sleep 3
+    adb exec-out screencap -p > artifacts/call-log-list.png 2>/dev/null || true
+    dump="$(dump_ui ui-calllog.xml)"
   fi
 
   if [ -z "$dump" ]; then
@@ -348,10 +403,8 @@ smoke_test_inventory() {
   mkdir -p artifacts
   adb exec-out screencap -p > artifacts/inventory.png 2>/dev/null || true
 
-  local dump=""
-  if adb shell uiautomator dump /sdcard/ui-inv.xml >/dev/null 2>&1; then
-    dump="$(adb shell cat /sdcard/ui-inv.xml 2>/dev/null || true)"
-  fi
+  local dump
+  dump="$(dump_ui ui-inv.xml)"
 
   if [ -z "$dump" ]; then
     echo "RESULT[inventory]: PASS - opened without crashing (contents unverified)"
