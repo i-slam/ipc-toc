@@ -114,7 +114,7 @@ fun BubblePanel(
         lastCall = withContext(Dispatchers.IO) { LastCall.read(context) }
         loaded = true
         unseenCall = true
-        expanded = true
+        expanded = false
         panel = ARC_CALL
     }
 
@@ -151,8 +151,9 @@ fun BubblePanel(
             expanded = expanded,
             style = arcStyle,
             onToggle = {
-                expanded = !expanded
-                if (!expanded) panel = null
+                // With a panel up the toggle is the way back out of it, not a second way to
+                // reopen the fan behind it.
+                if (panel != null) panel = null else expanded = !expanded
             },
             onItem = { item ->
                 when (item.id) {
@@ -173,7 +174,11 @@ fun BubblePanel(
 
                     else -> {
                         if (item.id == ARC_CALL) unseenCall = false
-                        panel = if (panel == item.id) null else item.id
+                        // The fan is a launcher: once it has been used it gets out of the way,
+                        // rather than sitting under the panel competing for a small screen.
+                        val opening = panel != item.id
+                        panel = if (opening) item.id else null
+                        expanded = !opening
                     }
                 }
             },

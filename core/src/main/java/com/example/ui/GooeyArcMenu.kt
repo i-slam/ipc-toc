@@ -135,7 +135,10 @@ fun GooeyArcMenu(
 
         // Layer 2: icons and hit targets, crisp.
         Box(modifier = Modifier.size(boxSize), contentAlignment = Alignment.BottomEnd) {
-            items.forEachIndexed { index, item ->
+            // Only while the fan is out. Closed, the items sit at zero offset stacked invisibly
+            // under the toggle, and leaving them composed leaves five unlabelled buttons on top
+            // of each other for anything reading the screen aloud.
+            if (progress > 0f) items.forEachIndexed { index, item ->
                 Box(
                     modifier = Modifier
                         .offset { offsets[index] }
