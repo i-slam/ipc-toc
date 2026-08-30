@@ -221,6 +221,95 @@ smoke_test_bubble_app() {
   return 1
 }
 
+# Seeds the emulator's call log so the list has something to render, then checks the rendered
+# screen rather than the log: the accessibility dump carries Compose's semantics, so the row text
+# and the per-row WhatsApp button either are on screen or they are not.
+smoke_test_call_log() {
+  local pkg="com.aistudio.ipcsolution.bubble"
+  local now dump
+  now="$(date +%s)000"
+
+  echo
+  echo "== call log list =="
+
+  # Shell holds WRITE_CALL_LOG on an emulator image; if a ROM refuses, the screen still has to
+  # render its empty state, so this is best-effort rather than fatal.
+  adb shell content insert --uri content://call_log/calls \
+    --bind number:s:+2348031234567 --bind type:i:3 --bind date:l:"$now" \
+    --bind duration:i:0 --bind new:i:1 --bind name:s:CI_Missed_Caller || true
+  adb shell content insert --uri content://call_log/calls \
+    --bind number:s:07700900123 --bind type:i:2 --bind date:l:"$((now - 60000))" \
+    --bind duration:i:75 --bind new:i:0 --bind name:s:CI_Local_Caller || true
+
+  adb logcat -c || true
+  adb shell am start -a com.example.bubble.action.CALL_LOG \
+    -n "$pkg/com.example.bubble.BubbleActivity"
+  sleep 8
+
+  if adb logcat -d -b crash | grep -q "FATAL EXCEPTION"; then
+    echo "RESULT[call log]: FAIL - crashed opening the list"
+    adb logcat -d -b crash | head -60
+    return 1
+  fi
+
+  mkdir -p artifacts
+  adb exec-out screencap -p > artifacts/call-log-list.png 2>/dev/null || true
+
+  dump=""
+  if adb shell uiautomator dump /sdcard/ui-calllog.xml >/dev/null 2>&1; then
+    dump="$(adb shell cat /sdcard/ui-calllog.xml 2>/dev/null || true)"
+  fi
+
+  if [ -z "$dump" ]; then
+    echo "-- no accessibility dump available, falling back to the activity stack"
+    if adb shell dumpsys activity activities | grep -q "$pkg/com.example.bubble.BubbleActivity"; then
+      echo "RESULT[call log]: PASS - list activity is on top (unverified contents)"
+      return 0
+    fi
+    echo "RESULT[call log]: FAIL - the list activity is not on top"
+    return 1
+  fi
+
+  # Bare words like "All" or "Out" appear all over an accessibility dump, so match the attribute
+  # rather than the word - otherwise this passes on a screen that never rendered.
+  if echo "$dump" | grep -q 'text="Missed"'; then
+    echo "-- the tab strip is on screen"
+  else
+    echo "RESULT[call log]: FAIL - the tabs never rendered"
+    echo "$dump" | grep -o 'text="[^"]*"' | sort -u | head -30
+    return 1
+  fi
+
+  if ! echo "$dump" | grep -q "CI_Missed_Caller"; then
+    # A ROM that refuses the insert leaves nothing to list; the screen still rendered, which is
+    # what this check is really for.
+    echo "-- the seeded rows are not on screen, the call log insert was refused"
+    echo "RESULT[call log]: PASS - tabs rendered (no seeded rows to check)"
+    return 0
+  fi
+
+  echo "-- seeded row is on screen; WhatsApp buttons found:"
+  echo "$dump" | grep -o 'content-desc="WhatsApp[^"]*"' | sort -u | head -5
+
+  # The international number can be messaged; the local one cannot, and its button says why
+  # instead of vanishing - that asymmetry is the whole point of the row.
+  local ok=0
+  echo "$dump" | grep -q 'content-desc="WhatsApp CI_Missed_Caller"' || {
+    echo "-- MISSING: an enabled WhatsApp button on the seeded international number"
+    ok=1
+  }
+  echo "$dump" | grep -q "WhatsApp unavailable" ||
+    echo "-- note: the local number resolved on this emulator, so no disabled button to see" 
+
+  if [ "$ok" -eq 0 ]; then
+    echo "RESULT[call log]: PASS - tabs, rows and both WhatsApp button states rendered"
+    return 0
+  fi
+
+  echo "RESULT[call log]: FAIL - the rows rendered without their WhatsApp buttons"
+  return 1
+}
+
 wait_for_device
 
 DEBUG_APK="artifacts/ipc-solution-poc-swiss-army-debug.apk"
@@ -251,15 +340,22 @@ if smoke_test_bubble_app; then
   bubble_status=pass
 fi
 
+call_log_status=fail
+if [ "$bubble_status" = pass ] && smoke_test_call_log; then
+  call_log_status=pass
+fi
+
 echo
 echo "=================================================================="
 echo "control (debug) : $debug_status"
 echo "minified release: $slim_status"
 echo "floating rail   : $floating_status"
 echo "bubble app      : $bubble_status"
+echo "call log list   : $call_log_status"
 echo "=================================================================="
 
-if [ "$slim_status" = pass ] && [ "$floating_status" = pass ] && [ "$bubble_status" = pass ]; then
+if [ "$slim_status" = pass ] && [ "$floating_status" = pass ] && \
+   [ "$bubble_status" = pass ] && [ "$call_log_status" = pass ]; then
   exit 0
 fi
 

@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -107,6 +108,7 @@ private data class RailAction(
 @Composable
 fun SwissArmyRail(
     onOpenLastCall: () -> Unit,
+    onOpenCallLog: () -> Unit,
     onQuickArm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -149,6 +151,14 @@ fun SwissArmyRail(
             primary = true,
             highlighted = true,
             onClick = onOpenLastCall
+        ),
+        RailAction(
+            label = "Call log",
+            hint = "Every recent call, one tap from WhatsApp",
+            icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+            tint = Color(0xFF25D366),
+            primary = true,
+            onClick = onOpenCallLog
         ),
         RailAction(
             label = "Arm everything",

@@ -75,6 +75,7 @@ class BubbleOverlayService : OverlayWindowService() {
         Log.i(TAG, "Bubble action: $action")
         when (action) {
             BubbleAction.WHATSAPP_LAST_CALL -> whatsAppLastCall(record)
+            BubbleAction.OPEN_CALL_LOG -> openCallLog()
             BubbleAction.COPY_LAST_CALL -> copyLastCall(record)
             BubbleAction.OPEN_DIALER -> openDialer()
             BubbleAction.OPEN_DIAGNOSTICS -> openDiagnosticsApp()
@@ -113,6 +114,20 @@ class BubbleOverlayService : OverlayWindowService() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Last call", record.toShareText()))
         toast("Last call copied")
+    }
+
+    /**
+     * The full list, where every call gets its own WhatsApp button. Starting an activity from a
+     * service is a background start the platform normally refuses, but an app holding
+     * SYSTEM_ALERT_WINDOW is exempt - which this one does, or the bubble would not be on screen.
+     */
+    private fun openCallLog() {
+        try {
+            startActivity(BubbleActivity.callLogIntent(this))
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not open the call log: ${e.message}")
+            toast("Could not open the call log")
+        }
     }
 
     private fun openDialer() {

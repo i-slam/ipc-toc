@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -47,7 +48,14 @@ import com.example.telephony.CallRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-enum class BubbleAction { WHATSAPP_LAST_CALL, COPY_LAST_CALL, OPEN_DIALER, OPEN_DIAGNOSTICS, HIDE }
+enum class BubbleAction {
+    WHATSAPP_LAST_CALL,
+    OPEN_CALL_LOG,
+    COPY_LAST_CALL,
+    OPEN_DIALER,
+    OPEN_DIAGNOSTICS,
+    HIDE
+}
 
 /** Reads the most recent call for the bubble, off the main thread at the call site. */
 object LastCall {
@@ -188,6 +196,12 @@ private fun ExpandedPanel(
                 background = Color(0xFF11351F)
             ) {
                 onAction(BubbleAction.WHATSAPP_LAST_CALL, lastCall)
+            }
+            PanelButton(
+                label = "All calls + WhatsApp",
+                icon = Icons.AutoMirrored.Filled.FormatListBulleted
+            ) {
+                onAction(BubbleAction.OPEN_CALL_LOG, lastCall)
             }
             PanelButton("Copy details", Icons.Default.ContentCopy) {
                 onAction(BubbleAction.COPY_LAST_CALL, lastCall)

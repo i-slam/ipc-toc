@@ -39,6 +39,12 @@
                 <action android:name="com.example.bubble.action.SHOW" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
+            <!-- Opened by the bubble itself, and by anything that wants the call list directly. -->
+            <intent-filter>
+                <action android:name="com.example.bubble.action.CALL_LOG" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <service

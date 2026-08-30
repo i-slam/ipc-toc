@@ -19,11 +19,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CallMade
 import androidx.compose.material.icons.filled.CallMissed
@@ -84,7 +84,7 @@ import kotlinx.coroutines.withContext
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LastCallInfoScreen(onBack: () -> Unit) {
+fun LastCallInfoScreen(onBack: () -> Unit, onOpenCallLog: () -> Unit) {
     val context = LocalContext.current
 
     var refreshKey by remember { mutableIntStateOf(0) }
@@ -237,17 +237,25 @@ fun LastCallInfoScreen(onBack: () -> Unit) {
 
             if (records.size > 1) {
                 item {
-                    Text(
-                        "EARLIER CALLS (${records.size - 1})",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
-                }
-                items(records.drop(1), key = { it.id }) { record ->
-                    CallHistoryRow(record)
+                    Button(
+                        onClick = onOpenCallLog,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
+                            contentDescription = null,
+                            tint = Color(0xFF25D366),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            "  See all calls, each with a WhatsApp button",
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
@@ -493,53 +501,6 @@ private fun DeviceProfileCard(context: Context) {
             hardware.forEach { DetailRow(it.label, it.value, monospace = true) }
             HorizontalDivider(color = Color(0xFF1E293B), thickness = 1.dp)
             restrictions.forEach { DetailRow(it.label, it.value) }
-        }
-    }
-}
-
-@Composable
-private fun CallHistoryRow(record: CallRecord) {
-    val accent = Color(record.direction.badgeColor)
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = Color(0xFF131C2E),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                imageVector = directionIcon(record.direction),
-                contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(18.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    record.displayName,
-                    color = Color(0xFFE2E8F0),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-                Text(
-                    "${record.direction.label} · ${record.formattedDuration}",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 11.sp
-                )
-            }
-            Text(
-                record.relativeTime(),
-                color = Color(0xFF64748B),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
-            )
         }
     }
 }

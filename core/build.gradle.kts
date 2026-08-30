@@ -15,6 +15,8 @@ android {
   }
 
   buildFeatures { compose = true }
+
+  testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
 // Shared by both apps, so the pieces they have in common are exported rather than duplicated.
@@ -32,4 +34,12 @@ dependencies {
   api(libs.androidx.lifecycle.runtime.ktx)
   api(libs.kotlinx.coroutines.android)
   api(libs.kotlinx.coroutines.core)
+
+  // The call log UI lives here now, so its tests do too.
+  testImplementation(libs.androidx.compose.ui.test.junit4)
+  testImplementation(libs.androidx.core)
+  testImplementation(libs.androidx.junit)
+  testImplementation(libs.junit)
+  testImplementation(libs.robolectric)
+  debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

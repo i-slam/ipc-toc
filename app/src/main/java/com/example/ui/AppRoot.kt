@@ -9,9 +9,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.example.ui.calllog.CallLogListScreen
 
-enum class AppRoute { DIAGNOSTICS, LAST_CALL }
+enum class AppRoute { DIAGNOSTICS, LAST_CALL, CALL_LOG }
 
 /**
  * Hosts the app pages and keeps the Swiss-army rail pinned above all of them, so every tool stays
@@ -37,11 +40,22 @@ fun AppRoot(
     Box(modifier = Modifier.fillMaxSize()) {
         when (route) {
             AppRoute.DIAGNOSTICS -> DiagnosticScreen()
-            AppRoute.LAST_CALL -> LastCallInfoScreen(onBack = { route = AppRoute.DIAGNOSTICS })
+            AppRoute.LAST_CALL -> LastCallInfoScreen(
+                onBack = { route = AppRoute.DIAGNOSTICS },
+                onOpenCallLog = { route = AppRoute.CALL_LOG }
+            )
+
+            AppRoute.CALL_LOG -> CallLogListScreen(
+                subtitle = "Every recent call · tap the green button to message",
+                onBack = { route = AppRoute.DIAGNOSTICS },
+                // The rail is docked over the right edge, so the rows stop short of it.
+                contentPadding = PaddingValues(start = 16.dp, end = 76.dp, top = 12.dp, bottom = 24.dp)
+            )
         }
 
         SwissArmyRail(
             onOpenLastCall = { route = AppRoute.LAST_CALL },
+            onOpenCallLog = { route = AppRoute.CALL_LOG },
             onQuickArm = quickArm
         )
     }

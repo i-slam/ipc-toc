@@ -38,6 +38,17 @@ class AppRootLaunchTest {
   }
 
   @Test
+  fun call_log_route_composes_and_measures() {
+    composeTestRule.setContent {
+      MyApplicationTheme(darkTheme = true, dynamicColor = false) {
+        AppRoot(initialRoute = AppRoute.CALL_LOG)
+      }
+    }
+
+    composeTestRule.onRoot().assertExists()
+  }
+
+  @Test
   fun last_call_route_composes_and_measures() {
     composeTestRule.setContent {
       MyApplicationTheme(darkTheme = true, dynamicColor = false) {

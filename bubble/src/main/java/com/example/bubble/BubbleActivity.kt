@@ -1,6 +1,7 @@
 package com.example.bubble
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,10 +46,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.calllog.CallLogListScreen
 
 /**
- * The only screen this app has. It exists to get the overlay permission and switch the bubble on -
- * everything else happens in the floating button itself.
+ * The only screen this app has: the recent calls, each one tap from a WhatsApp chat, with the
+ * setup card that grants the overlay permission sitting at the top of the same list.
+ *
+ * Putting the card inside the list rather than above it keeps one scrolling container on screen -
+ * two of them nested fight each other on a short phone.
  */
 class BubbleActivity : ComponentActivity() {
 
@@ -65,18 +69,32 @@ class BubbleActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
-                BubbleSetupScreen()
+                CallLogListScreen(
+                    title = "Floating Button",
+                    subtitle = "Recent calls · tap the green button to message",
+                    header = { BubbleSetupCard() }
+                )
             }
         }
     }
 
     companion object {
         const val ACTION_SHOW = "com.example.bubble.action.SHOW"
+
+        /** Opens this screen from the bubble; the list is what the activity shows either way. */
+        const val ACTION_CALL_LOG = "com.example.bubble.action.CALL_LOG"
+
+        fun callLogIntent(context: Context): Intent =
+            Intent(context, BubbleActivity::class.java).apply {
+                action = ACTION_CALL_LOG
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
     }
 }
 
+/** Overlay grant, bubble on/off - everything this app needs before the button can exist. */
 @Composable
-private fun BubbleSetupScreen() {
+private fun BubbleSetupCard() {
     val context = LocalContext.current
     val isShowing by BubbleOverlayService.isShowing.collectAsStateWithLifecycle()
 
@@ -106,43 +124,50 @@ private fun BubbleSetupScreen() {
     }
 
     Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF090D16)
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF131C2E),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0369A1)),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(38.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0369A1)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        "Floating button",
+                        color = Color(0xFFF8FAFC),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Sits on the screen edge above every app",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp
+                    )
+                }
             }
-
-            Text(
-                "Floating Button",
-                color = Color(0xFFF8FAFC),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "A bubble that sits on the screen edge above every app. Drag it anywhere, tap it " +
-                        "for the last call, the dialer, or the full diagnostics app.",
-                color = Color(0xFF94A3B8),
-                fontSize = 13.sp
-            )
 
             StatusRow("Display over other apps", hasOverlay)
             StatusRow("Bubble on screen", isShowing)
@@ -153,8 +178,8 @@ private fun BubbleSetupScreen() {
                         BubbleOverlayService.hide(context)
                         return@Button
                     }
-                    // Ask for the call log first so the bubble has something to show, then the
-                    // overlay grant, which is the one it cannot work without.
+                    // Ask for the call log first so the list and the bubble have something to
+                    // show, then the overlay grant, which is the one it cannot work without.
                     val perms = mutableListOf(Manifest.permission.READ_CALL_LOG)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         perms += Manifest.permission.POST_NOTIFICATIONS
@@ -176,8 +201,8 @@ private fun BubbleSetupScreen() {
             }
 
             Text(
-                "You can close this screen - the button stays. Hide it from the button itself or " +
-                        "from its notification.",
+                "Close this screen and the button stays. Hide it from the button itself or from " +
+                        "its notification.",
                 color = Color(0xFF64748B),
                 fontSize = 11.sp
             )
@@ -191,9 +216,8 @@ private fun StatusRow(label: String, ok: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF131C2E))
-            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .background(Color(0xFF16213A))
+            .padding(horizontal = 12.dp, vertical = 9.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
