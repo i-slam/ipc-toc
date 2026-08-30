@@ -152,6 +152,47 @@ class VehicleJsonTest {
         assertEquals("Volvo 2013", VehicleJson.decode(raw).single().title)
     }
 
+    /**
+     * WhatsApp previews the first link in a message, so where the catalogue link sits in the
+     * share text decides whether the customer gets a product card or a bare URL.
+     */
+    @Test
+    fun `a catalogue link is parsed and ends the share text on its own line`() {
+        val raw = """[{"id":"v11","make":"BMW","model":"1 Series","price_mad":95000,
+                      "status":"available",
+                      "whatsapp_product_url":"https://wa.me/p/26817859747874152/135880232689808"}]"""
+
+        val v = VehicleJson.decode(raw).single()
+
+        assertTrue(v.hasProductLink)
+        assertTrue(
+            v.toShareText(),
+            v.toShareText().trimEnd().endsWith("https://wa.me/p/26817859747874152/135880232689808")
+        )
+    }
+
+    @Test
+    fun `a vehicle with no catalogue link says so rather than carrying a blank one`() {
+        val raw = """[{"id":"v12","make":"Kia","model":"Rio","status":"available",
+                      "whatsapp_product_url":null}]"""
+
+        val v = VehicleJson.decode(raw).single()
+
+        assertFalse(v.hasProductLink)
+        assertNull(v.whatsappProductUrl)
+        assertFalse(v.toShareText().contains("wa.me"))
+    }
+
+    @Test
+    fun `the catalogue link survives the cache round trip`() {
+        val v = Vehicle(
+            id = "v13", make = "VW", model = "Golf 6",
+            whatsappProductUrl = "https://wa.me/p/28615005801430884/135880232689808"
+        )
+
+        assertEquals(v, VehicleJson.decode(VehicleJson.encode(listOf(v))).single())
+    }
+
     @Test
     fun `a real model in brackets is not confused with a placeholder`() {
         // Only a leading bracket is treated as a note; a bracket later in the name is a trim level.

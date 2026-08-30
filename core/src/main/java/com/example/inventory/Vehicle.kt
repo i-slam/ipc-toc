@@ -26,8 +26,12 @@ data class Vehicle(
     val rating: Int? = null,
     val specialOffer: Boolean = false,
     val offerPriceMad: Double? = null,
-    val offerNote: String? = null
+    val offerNote: String? = null,
+    /** A WhatsApp catalogue product link, which WhatsApp renders as a card rather than a URL. */
+    val whatsappProductUrl: String? = null
 ) {
+    val hasProductLink: Boolean get() = !whatsappProductUrl.isNullOrBlank()
+
     val isAvailable: Boolean get() = status == STATUS_AVAILABLE
 
     /**
@@ -75,6 +79,9 @@ data class Vehicle(
             append(offerNote?.takeIf { it.isNotBlank() } ?: "Special offer")
         }
         location?.takeIf { it.isNotBlank() }?.let { append("\n").append(it) }
+        // Last, and on its own line: WhatsApp previews the first link in a message, and a
+        // catalogue link buried mid-paragraph is just a URL.
+        whatsappProductUrl?.takeIf { it.isNotBlank() }?.let { append("\n").append(it) }
     }
 
     companion object {
@@ -126,6 +133,7 @@ internal object VehicleJson {
                     put("special_offer", v.specialOffer)
                     put("offer_price_mad", v.offerPriceMad ?: JSONObject.NULL)
                     put("offer_note", v.offerNote ?: JSONObject.NULL)
+                    put("whatsapp_product_url", v.whatsappProductUrl ?: JSONObject.NULL)
                 }
             )
         }
@@ -162,7 +170,8 @@ internal object VehicleJson {
             rating = obj.int("rating"),
             specialOffer = obj.optBoolean("special_offer", false),
             offerPriceMad = obj.double("offer_price_mad"),
-            offerNote = obj.string("offer_note")
+            offerNote = obj.string("offer_note"),
+            whatsappProductUrl = obj.string("whatsapp_product_url")
         )
     }
 
@@ -192,6 +201,6 @@ internal object VehicleJson {
     val SELECT = listOf(
         "id", "make", "model", "year", "fuel_type", "transmission", "mileage_km", "color",
         "price_mad", "location", "status", "photo_url", "rating", "special_offer",
-        "offer_price_mad", "offer_note"
+        "offer_price_mad", "offer_note", "whatsapp_product_url"
     ).joinToString(",")
 }

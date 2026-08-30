@@ -213,6 +213,12 @@ fun InventoryScreen(
  * Photos are URLs in the database and WhatsApp needs files, so the chosen ones are fetched to
  * cache before the share opens. Anything without a usable photo still goes as text rather than
  * being quietly dropped from the selection.
+ *
+ * One vehicle that has a catalogue link is the exception, and deliberately so: WhatsApp turns a
+ * wa.me/p link into a product card with its own picture, price and an order button, which is a
+ * better thing to receive than a photo with a caption. It only does that for a text message and
+ * only for the first link, so attaching our own photo would replace the card with an image and
+ * throw the rest away.
  */
 private suspend fun sendSelection(
     context: Context,
@@ -222,6 +228,12 @@ private suspend fun sendSelection(
     if (chosen.isEmpty()) return "Nothing selected"
 
     val caption = chosen.joinToString("\n\n") { it.toShareText() }
+
+    val single = chosen.singleOrNull()
+    if (single != null && single.hasProductLink) {
+        return WhatsAppSender.sendText(context, number, caption)
+    }
+
     val uris = withContext(Dispatchers.IO) {
         chosen.mapNotNull { vehicle ->
             PhotoCache.ensure(context, vehicle)?.let { PhotoCache.shareUri(context, it) }
@@ -284,6 +296,24 @@ private fun VehicleCard(vehicle: Vehicle, selected: Boolean, onToggle: () -> Uni
                             contentDescription = null,
                             tint = Crm.Line,
                             modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+
+                if (vehicle.hasProductLink) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Crm.WhatsAppInk)
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            "Catalogue",
+                            color = Crm.WhatsAppText,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
