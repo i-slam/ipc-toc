@@ -30,15 +30,16 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      # No gradle-version here on purpose: this uses the committed wrapper, so CI and a local
+      # clone run the identical Gradle, and a broken wrapper fails here rather than on someone's
+      # machine.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.3.1"
 
       # Runs first: a composition that throws during measure kills the app on launch, and this
       # catches it in a minute instead of a full emulator round trip.
       - name: Unit tests
-        run: gradle testDebugUnitTest --stacktrace
+        run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Upload test reports
         if: always()
@@ -52,11 +53,11 @@ jobs:
           retention-days: 7
 
       - name: Assemble debug APK
-        run: gradle assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace
 
       # Signing keys come from ci/ in the repo, so each build installs over the last.
       - name: Assemble minified release APK
-        run: gradle assembleRelease --stacktrace
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Stage APKs
         run: |
