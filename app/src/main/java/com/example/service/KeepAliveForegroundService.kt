@@ -222,13 +222,15 @@ class KeepAliveForegroundService : Service() {
     private fun startForegroundWithNotification() {
         val notification = buildNotification()
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Same subset rule as the overlay service: the manifest declares specialUse|phoneCall,
+            // so DATA_SYNC was never allowed here and the typed call threw on Android 10 to 13.
+            // The two-argument call uses the manifest's own set, which is exactly what is wanted.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                } else {
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                }
-                startForeground(NOTIFICATION_ID, notification, serviceType)
+                )
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }

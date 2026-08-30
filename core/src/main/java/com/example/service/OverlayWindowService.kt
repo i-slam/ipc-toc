@@ -142,13 +142,16 @@ abstract class OverlayWindowService : Service(), LifecycleOwner, SavedStateRegis
      */
     protected fun goForeground(notificationId: Int, notification: Notification) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // The runtime type has to be a subset of what the manifest declares, and the manifest
+            // declares specialUse - a constant that only exists from API 34. Below that, the
+            // two-argument call takes the manifest's own types, which is the only thing that
+            // matches; passing DATA_SYNC threw on every start from Android 10 to 13.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    notificationId,
+                    notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                } else {
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                }
-                startForeground(notificationId, notification, type)
+                )
             } else {
                 startForeground(notificationId, notification)
             }

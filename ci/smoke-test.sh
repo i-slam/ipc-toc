@@ -205,6 +205,14 @@ smoke_test_bubble_app() {
     return 1
   fi
 
+  # The fallback inside goForeground hides this: the service still comes up, so nothing fails,
+  # and the typed call quietly throws on every start. Catch it here instead.
+  if echo "$log" | grep -q "startForeground failed"; then
+    echo "RESULT[bubble app]: FAIL - the service could not go foreground with its declared type"
+    echo "$log" | grep "startForeground failed"
+    return 1
+  fi
+
   if echo "$log" | grep -q "Overlay window attached"; then
     capture_bubble_screenshots
     echo "RESULT[bubble app]: PASS - launcher screen and overlay window both up"
@@ -232,14 +240,18 @@ smoke_test_call_log() {
   echo
   echo "== call log list =="
 
-  # Shell holds WRITE_CALL_LOG on an emulator image; if a ROM refuses, the screen still has to
-  # render its empty state, so this is best-effort rather than fatal.
+  # The shell uid does not hold WRITE_CALL_LOG, so the insert is refused and the list has nothing
+  # to show - which is how the first run of this check passed without proving anything. On a
+  # default (non-Google-APIs) image adb can take root, and root can write the provider.
+  adb root >/dev/null 2>&1 && adb wait-for-device
   adb shell content insert --uri content://call_log/calls \
     --bind number:s:+2348031234567 --bind type:i:3 --bind date:l:"$now" \
     --bind duration:i:0 --bind new:i:1 --bind name:s:CI_Missed_Caller || true
   adb shell content insert --uri content://call_log/calls \
     --bind number:s:07700900123 --bind type:i:2 --bind date:l:"$((now - 60000))" \
     --bind duration:i:75 --bind new:i:0 --bind name:s:CI_Local_Caller || true
+
+  adb unroot >/dev/null 2>&1 && adb wait-for-device
 
   adb logcat -c || true
   adb shell am start -a com.example.bubble.action.CALL_LOG \
@@ -283,9 +295,9 @@ smoke_test_call_log() {
   if ! echo "$dump" | grep -q "CI_Missed_Caller"; then
     # A ROM that refuses the insert leaves nothing to list; the screen still rendered, which is
     # what this check is really for.
-    echo "-- the seeded rows are not on screen, the call log insert was refused"
-    echo "RESULT[call log]: PASS - tabs rendered (no seeded rows to check)"
-    return 0
+    echo "RESULT[call log]: FAIL - the seeded calls were inserted but never reached the list"
+    adb shell content query --uri content://call_log/calls --projection number,type 2>&1 | head -5
+    return 1
   fi
 
   echo "-- seeded row is on screen; WhatsApp buttons found:"
