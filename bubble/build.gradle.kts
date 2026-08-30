@@ -1,7 +1,21 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
 }
+
+// The inventory database's URL and publishable key. Kept out of the repository: this one is
+// public, and its APKs are published, so anything committed here is effectively broadcast. Put
+// them in local.properties (gitignored) or pass them through the environment.
+val localProperties = Properties().apply {
+  val file = rootProject.file("local.properties")
+  if (file.exists()) file.inputStream().use { load(it) }
+}
+
+fun setting(name: String): String =
+  System.getenv(name) ?: localProperties.getProperty(name) ?: ""
+
 
 android {
   namespace = "com.example.bubble"
@@ -13,6 +27,9 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
+
+    buildConfigField("String", "SUPABASE_URL", "\"${setting("SUPABASE_URL")}\"")
+    buildConfigField("String", "SUPABASE_KEY", "\"${setting("SUPABASE_ANON_KEY")}\"")
   }
 
   // Shares the committed keys with :app - see the note there.
@@ -46,7 +63,10 @@ android {
     targetCompatibility = JavaVersion.VERSION_11
   }
 
-  buildFeatures { compose = true }
+  buildFeatures {
+    compose = true
+    buildConfig = true
+  }
 
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }

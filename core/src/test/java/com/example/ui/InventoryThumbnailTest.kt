@@ -2,12 +2,13 @@ package com.example.ui
 
 import com.example.ui.inventory.sampleSizeFor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * A grid of full-resolution phone photos is how a screen like this runs out of memory, so the
- * downsampling factor is worth pinning - including the degenerate inputs, where returning 0 would
- * make BitmapFactory throw rather than decode.
+ * A grid of full-resolution dealership photos is how a screen like this runs out of memory, so
+ * the downsampling factor is worth pinning - including the degenerate inputs, where returning 0
+ * would make BitmapFactory throw rather than decode.
  */
 class InventoryThumbnailTest {
 
@@ -28,11 +29,7 @@ class InventoryThumbnailTest {
     fun `the result is always a power of two`() {
         listOf(700, 1100, 2600, 3800, 5000).forEach { width ->
             val sample = sampleSizeFor(width, 480)
-            assertEquals(
-                "width=$width gave $sample",
-                0,
-                sample and (sample - 1)
-            )
+            assertEquals("width=$width gave $sample", 0, sample and (sample - 1))
         }
     }
 
@@ -42,5 +39,10 @@ class InventoryThumbnailTest {
         listOf(0, -1, -4032).forEach { assertEquals(1, sampleSizeFor(it, 480)) }
         assertEquals(1, sampleSizeFor(1920, 0))
         assertEquals(1, sampleSizeFor(1920, -1))
+    }
+
+    @Test
+    fun `a very tall thin photo is still reduced by its width`() {
+        assertTrue(sampleSizeFor(3000, 480) > 1)
     }
 }

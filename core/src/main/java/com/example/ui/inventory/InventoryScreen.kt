@@ -1,10 +1,7 @@
 package com.example.ui.inventory
 
-import android.net.Uri
+import android.content.Context
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,30 +21,28 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,13 +56,18 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.inventory.InventoryItem
-import com.example.inventory.InventoryStore
+import com.example.inventory.InventorySnapshot
+import com.example.inventory.PhotoCache
+import com.example.inventory.SupabaseConfig
+import com.example.inventory.Vehicle
+import com.example.inventory.VehicleRepository
 import com.example.telephony.WhatsAppSender
 import com.example.ui.theme.Crm
 import kotlinx.coroutines.Dispatchers
@@ -76,30 +76,34 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * The inventory grid: pick what to send, then send it to whoever just called.
+ * The inventory, read from the database that owns it.
  *
- * The send is the point, so the button carries the count and stays pinned to the bottom rather
- * than scrolling away with the grid.
+ * There is no editing here on purpose: stock is maintained elsewhere and this app is a reader, so
+ * the only actions are choosing vehicles and sending them to whoever just called.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(
+    config: SupabaseConfig,
     sendToNumber: String?,
     sendToName: String?,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-
-    val items = remember { mutableStateListOf<InventoryItem>() }
-    val selected = remember { mutableStateListOf<String>() }
-    var loaded by remember { mutableStateOf(false) }
-    var adding by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        items.addAll(InventoryStore.load(context))
-        loaded = true
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var loading by remember { mutableStateOf(true) }
+    var snapshot by remember { mutableStateOf(InventorySnapshot(emptyList(), fromCache = false)) }
+    var sending by remember { mutableStateOf(false) }
+    val selected = remember { mutableStateListOf<String>() }
+
+    LaunchedEffect(refreshKey) {
+        loading = true
+        snapshot = VehicleRepository.load(context, config)
+        selected.retainAll(snapshot.vehicles.map { it.id }.toSet())
+        loading = false
     }
 
     Scaffold(
@@ -128,8 +132,8 @@ fun InventoryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { adding = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add an item", tint = Crm.Accent)
+                    IconButton(onClick = { refreshKey++ }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Crm.Accent)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -140,36 +144,41 @@ fun InventoryScreen(
         },
         containerColor = Crm.Ink
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             when {
-                !loaded -> Placeholder("Reading the inventory…")
+                loading && snapshot.isEmpty -> Placeholder("Reading the inventory…")
 
-                items.isEmpty() -> Placeholder(
-                    "Nothing in the inventory yet. Add a photo, a name and a price with + above, " +
-                            "then it is two taps to send it to a caller."
+                snapshot.isEmpty -> Placeholder(
+                    snapshot.problem ?: "No vehicles are marked available right now."
                 )
 
                 else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 88.dp),
+                    contentPadding = PaddingValues(
+                        start = 14.dp,
+                        end = 14.dp,
+                        top = 12.dp,
+                        bottom = if (selected.isEmpty()) 16.dp else 88.dp
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(items, key = { it.id }) { item ->
-                        InventoryCard(
-                            item = item,
-                            selected = selected.contains(item.id),
+                    if (snapshot.problem != null) {
+                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                            StaleBanner(snapshot.problem!!)
+                        }
+                    }
+                    items(snapshot.vehicles, key = { it.id }) { vehicle ->
+                        VehicleCard(
+                            vehicle = vehicle,
+                            selected = selected.contains(vehicle.id),
                             onToggle = {
-                                if (selected.contains(item.id)) selected.remove(item.id)
-                                else selected.add(item.id)
-                            },
-                            onDelete = {
-                                selected.remove(item.id)
-                                scope.launch {
-                                    val left = InventoryStore.remove(context, item.id)
-                                    items.clear()
-                                    items.addAll(left)
-                                }
+                                if (selected.contains(vehicle.id)) selected.remove(vehicle.id)
+                                else selected.add(vehicle.id)
                             }
                         )
                     }
@@ -179,49 +188,45 @@ fun InventoryScreen(
             if (selected.isNotEmpty()) {
                 SendBar(
                     count = selected.size,
+                    busy = sending,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 ) {
-                    val chosen = items.filter { selected.contains(it.id) }
-                    val failure = sendSelection(context, sendToNumber, chosen)
-                    if (failure != null) {
-                        Toast.makeText(context, failure, Toast.LENGTH_LONG).show()
-                    } else {
-                        selected.clear()
+                    if (sending) return@SendBar
+                    sending = true
+                    scope.launch {
+                        val chosen = snapshot.vehicles.filter { selected.contains(it.id) }
+                        val failure = sendSelection(context, sendToNumber, chosen)
+                        sending = false
+                        if (failure != null) {
+                            Toast.makeText(context, failure, Toast.LENGTH_LONG).show()
+                        } else {
+                            selected.clear()
+                        }
                     }
                 }
             }
         }
     }
-
-    if (adding) {
-        AddItemDialog(
-            onDismiss = { adding = false },
-            onAdd = { name, price, uri ->
-                adding = false
-                scope.launch {
-                    val updated = InventoryStore.add(context, name, price, uri)
-                    items.clear()
-                    items.addAll(updated)
-                }
-            }
-        )
-    }
 }
 
 /**
- * Photos go as attachments and the names and prices as the caption; an item with no photo would
- * otherwise be silently dropped from a media share, so a text-only selection takes the wa.me
- * route instead.
+ * Photos are URLs in the database and WhatsApp needs files, so the chosen ones are fetched to
+ * cache before the share opens. Anything without a usable photo still goes as text rather than
+ * being quietly dropped from the selection.
  */
-private fun sendSelection(
-    context: android.content.Context,
+private suspend fun sendSelection(
+    context: Context,
     number: String?,
-    chosen: List<InventoryItem>
+    chosen: List<Vehicle>
 ): String? {
     if (chosen.isEmpty()) return "Nothing selected"
 
-    val caption = chosen.joinToString("\n") { it.toShareLine() }
-    val uris = chosen.mapNotNull { InventoryStore.shareUri(context, it) }
+    val caption = chosen.joinToString("\n\n") { it.toShareText() }
+    val uris = withContext(Dispatchers.IO) {
+        chosen.mapNotNull { vehicle ->
+            PhotoCache.ensure(context, vehicle)?.let { PhotoCache.shareUri(context, it) }
+        }
+    }
 
     return if (uris.isEmpty()) {
         WhatsAppSender.sendText(context, number, caption)
@@ -231,14 +236,11 @@ private fun sendSelection(
 }
 
 @Composable
-private fun InventoryCard(
-    item: InventoryItem,
-    selected: Boolean,
-    onToggle: () -> Unit,
-    onDelete: () -> Unit
-) {
+private fun VehicleCard(vehicle: Vehicle, selected: Boolean, onToggle: () -> Unit) {
     val context = LocalContext.current
-    var confirming by remember { mutableStateOf(false) }
+    var photo by remember(vehicle.id) { mutableStateOf<File?>(null) }
+
+    LaunchedEffect(vehicle.id) { photo = PhotoCache.ensure(context, vehicle) }
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -251,28 +253,63 @@ private fun InventoryCard(
                 shape = RoundedCornerShape(16.dp)
             )
             .clickable { onToggle() }
+            .semantics {
+                contentDescription =
+                    "${vehicle.title}, ${vehicle.displayPrice}${if (selected) ", selected" else ""}"
+            }
     ) {
         Column {
-            Box(modifier = Modifier.fillMaxWidth().aspectRatio(1.5f)) {
-                val path = InventoryStore.imagePath(context, item)
-                val thumbnail = rememberThumbnail(path)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.5f)
+            ) {
+                val thumbnail = rememberThumbnail(photo)
                 if (thumbnail != null) {
                     Image(
                         bitmap = thumbnail,
-                        contentDescription = item.name,
+                        contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(Crm.Surface3),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Crm.Surface3),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.DirectionsCar,
                             contentDescription = null,
                             tint = Crm.Line,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+
+                if (vehicle.specialOffer) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Crm.Accent)
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = Crm.AccentInk,
+                            modifier = Modifier.size(10.dp)
+                        )
+                        Text(
+                            vehicle.offerNote?.takeIf { it.isNotBlank() } ?: "Offer",
+                            color = Crm.AccentInk,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
                     }
                 }
@@ -290,169 +327,115 @@ private fun InventoryCard(
                     if (selected) {
                         Icon(
                             Icons.Default.Check,
-                            contentDescription = "Selected",
+                            contentDescription = null,
                             tint = Crm.AccentInk,
                             modifier = Modifier.size(13.dp)
                         )
                     }
                 }
-
-                IconButton(
-                    onClick = { confirming = true },
-                    modifier = Modifier.align(Alignment.TopStart).size(28.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Remove ${item.name}",
-                        tint = Color(0xCCFFFFFF),
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
             }
 
             Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp)) {
                 Text(
-                    item.name,
+                    vehicle.title,
                     color = Crm.Text,
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2
                 )
-                Text(
-                    item.displayPrice,
-                    color = Crm.Accent2,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-
-    if (confirming) {
-        AlertDialog(
-            onDismissRequest = { confirming = false },
-            containerColor = Crm.Surface2,
-            title = { Text("Remove ${item.name}?", color = Crm.Text, fontSize = 15.sp) },
-            text = {
-                Text("Its photo is deleted too.", color = Crm.TextMuted, fontSize = 12.sp)
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirming = false
-                    onDelete()
-                }) { Text("Remove", color = Crm.Danger) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirming = false }) {
-                    Text("Keep", color = Crm.TextMuted)
+                if (vehicle.specLine.isNotBlank()) {
+                    Text(vehicle.specLine, color = Crm.TextMuted, fontSize = 9.5.sp, maxLines = 1)
                 }
-            }
-        )
-    }
-}
-
-@Composable
-private fun SendBar(count: Int, modifier: Modifier = Modifier, onSend: () -> Unit) {
-    Button(
-        onClick = onSend,
-        colors = ButtonDefaults.buttonColors(containerColor = Crm.WhatsApp),
-        shape = RoundedCornerShape(999.dp),
-        modifier = modifier.fillMaxWidth().padding(16.dp)
-    ) {
-        Text(
-            "Send $count ${if (count == 1) "item" else "items"} via WhatsApp",
-            color = Crm.WhatsAppInk,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddItemDialog(
-    onDismiss: () -> Unit,
-    onAdd: (String, String, Uri?) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var photo by remember { mutableStateOf<Uri?>(null) }
-
-    // The photo picker needs no storage permission at all - the user hands over one image and
-    // nothing else is readable.
-    val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { photo = it }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Crm.Surface2,
-        title = { Text("Add to inventory", color = Crm.Text, fontSize = 16.sp) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    singleLine = true,
-                    colors = fieldColours()
-                )
-                OutlinedTextField(
-                    value = price,
-                    onValueChange = { price = it },
-                    label = { Text("Price") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    colors = fieldColours()
-                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    TextButton(
-                        onClick = {
-                            picker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        }
-                    ) {
-                        Text(if (photo == null) "Choose a photo" else "Photo chosen", color = Crm.Accent)
-                    }
-                    if (photo != null) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = Crm.WhatsApp)
+                    Text(
+                        vehicle.displayPrice,
+                        color = Crm.Accent2,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    vehicle.wasPrice?.let {
+                        Text(
+                            it,
+                            color = Crm.TextFaint,
+                            fontSize = 9.sp,
+                            textDecoration = TextDecoration.LineThrough
+                        )
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = name.isNotBlank(),
-                onClick = { onAdd(name.trim(), price.trim(), photo) }
-            ) {
-                Text("Add", color = if (name.isNotBlank()) Crm.Accent else Crm.Line)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = Crm.TextMuted) }
         }
-    )
+    }
+}
+
+/** Says plainly that these are the last known prices, not the current ones. */
+@Composable
+private fun StaleBanner(problem: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Crm.WarnSurface)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Icon(
+            Icons.Default.CloudOff,
+            contentDescription = null,
+            tint = Crm.Accent2,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            "$problem — showing the last inventory this phone saw, so prices may have moved.",
+            color = Crm.Accent2,
+            fontSize = 10.5.sp
+        )
+    }
 }
 
 @Composable
-private fun fieldColours() = TextFieldDefaults.colors(
-    focusedContainerColor = Crm.Surface,
-    unfocusedContainerColor = Crm.Surface,
-    focusedIndicatorColor = Crm.Accent,
-    unfocusedIndicatorColor = Crm.Line,
-    focusedLabelColor = Crm.Accent2,
-    unfocusedLabelColor = Crm.TextMuted,
-    focusedTextColor = Crm.Text,
-    unfocusedTextColor = Crm.Text
-)
+private fun SendBar(count: Int, busy: Boolean, modifier: Modifier = Modifier, onSend: () -> Unit) {
+    Button(
+        onClick = onSend,
+        enabled = !busy,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Crm.WhatsApp,
+            disabledContainerColor = Crm.WhatsApp.copy(alpha = 0.6f)
+        ),
+        shape = RoundedCornerShape(999.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        if (busy) {
+            CircularProgressIndicator(
+                color = Crm.WhatsAppInk,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(15.dp)
+            )
+            Text(
+                "  Fetching photos…",
+                color = Crm.WhatsAppInk,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        } else {
+            Text(
+                "Send $count ${if (count == 1) "vehicle" else "vehicles"} via WhatsApp",
+                color = Crm.WhatsAppInk,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
 
 /**
- * Decoded once per file and downsampled to roughly card size: a grid of full-resolution phone
- * photos is how a list like this runs out of memory.
+ * Decoded once per file and downsampled to roughly card size: a grid of full-resolution photos is
+ * how a screen like this runs out of memory.
  */
 @Composable
 private fun rememberThumbnail(file: File?): ImageBitmap? {
@@ -491,8 +474,16 @@ private const val THUMBNAIL_WIDTH_PX = 480
 
 @Composable
 private fun Placeholder(message: String) {
-    Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Icon(
                 Icons.Default.DirectionsCar,
                 contentDescription = null,

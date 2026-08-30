@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.AppPrefs
 import com.example.ui.calllog.CallLogListScreen
+import com.example.inventory.SupabaseConfig
 import com.example.ui.inventory.InventoryScreen
 
 /**
@@ -84,6 +85,7 @@ class BubbleActivity : ComponentActivity() {
 
                 if (showInventory) {
                     InventoryScreen(
+                        config = inventoryConfig(),
                         sendToNumber = sendToNumber,
                         sendToName = sendToName,
                         onBack = { showInventory = false }
@@ -100,6 +102,10 @@ class BubbleActivity : ComponentActivity() {
     }
 
     companion object {
+        /** Empty in any build that was not given a database; the screen then shows its cache. */
+        fun inventoryConfig(): SupabaseConfig =
+            SupabaseConfig(url = BuildConfig.SUPABASE_URL, key = BuildConfig.SUPABASE_KEY)
+
         const val ACTION_SHOW = "com.example.bubble.action.SHOW"
 
         /** Opens this screen from the bubble; the list is what the activity shows either way. */

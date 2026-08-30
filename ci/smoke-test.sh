@@ -418,8 +418,15 @@ smoke_test_inventory() {
     echo "-- WARNING: the caller did not carry through the intent"
   fi
 
-  if echo "$dump" | grep -q "Nothing in the inventory yet"; then
-    echo "RESULT[inventory]: PASS - empty state rendered on a store that does not exist yet"
+  # CI builds get no SUPABASE_URL, so the inventory has no database to read and should say so
+  # rather than crash or sit blank. That is the state being checked here.
+  if echo "$dump" | grep -q "No inventory database configured"; then
+    echo "RESULT[inventory]: PASS - unconfigured build says so instead of failing"
+    return 0
+  fi
+
+  if echo "$dump" | grep -q "No vehicles are marked available"; then
+    echo "RESULT[inventory]: PASS - reached the database and found nothing available"
     return 0
   fi
 

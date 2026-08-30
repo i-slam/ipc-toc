@@ -32,6 +32,29 @@ sdk.dir=D:\\android-tools\\Sdk
 
 Note the doubled backslashes; it is a Java properties file.
 
+**3b. Point the inventory at the database.** The vehicle inventory is read from Supabase, and the
+credentials are deliberately *not* in the repository - this repo is public and its APKs are
+published, so anything committed here is broadcast. Add them to the same `local.properties`:
+
+```properties
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+SUPABASE_ANON_KEY=<your publishable key>
+```
+
+A build without them still runs; the inventory screen says it has no database configured and
+falls back to whatever that phone last cached. CI builds are in exactly that state, which is why
+the published APKs show an empty inventory.
+
+Before putting that key in an APK you hand out, check what the `anon` role is allowed to do:
+
+```sql
+select policyname, cmd, roles::text, qual, with_check
+from pg_policies where tablename = 'vehicles';
+```
+
+A publishable key in a distributed app is normal and safe when `anon` can only `SELECT`. It is
+not safe while `anon` can also `INSERT` or `UPDATE`, because anyone can unpack an APK.
+
 **4. Accept the SDK licences**, so Gradle can fetch the platform and build-tools it needs
 on the first build:
 
