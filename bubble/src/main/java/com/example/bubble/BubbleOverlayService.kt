@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import android.view.Gravity
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.example.data.AppPrefs
@@ -52,7 +53,11 @@ class BubbleOverlayService : OverlayWindowService() {
             return START_NOT_STICKY
         }
 
-        val attached = attachOverlay { onDragVertically ->
+        // Bottom-right, per the concept: the arc opens up and to the left into free screen.
+        val attached = attachOverlay(
+            initialY = 140,
+            gravity = Gravity.BOTTOM or Gravity.END
+        ) { onDragVertically ->
             BubblePanel(
                 onAction = ::handleAction,
                 onDragVertically = onDragVertically

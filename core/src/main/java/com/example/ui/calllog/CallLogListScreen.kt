@@ -83,17 +83,19 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.telephony.CallDirection
 import com.example.telephony.CallLogReader
 import com.example.telephony.WhatsAppLauncher
+import com.example.ui.theme.Crm
 
-private val Background = Color(0xFF090D16)
-private val Card = Color(0xFF131C2E)
-private val Hairline = Color(0xFF1E293B)
-private val Bright = Color(0xFFF8FAFC)
-private val Body = Color(0xFFE2E8F0)
-private val Muted = Color(0xFF94A3B8)
-private val Faint = Color(0xFF64748B)
-private val Accent = Color(0xFF38BDF8)
-private val WhatsAppGreen = Color(0xFF25D366)
-private val WhatsAppInk = Color(0xFF11351F)
+private val Background = Crm.Ink
+private val Card = Crm.Surface
+private val Hairline = Crm.Line
+private val Bright = Crm.Text
+private val Body = Crm.Text
+private val Muted = Crm.TextMuted
+private val Faint = Crm.TextFaint
+private val Accent = Crm.Accent
+private val TopBar = Crm.Surface
+private val WhatsAppGreen = Crm.WhatsApp
+private val WhatsAppInk = Crm.WhatsAppInk
 
 /** Room for the Swiss-army rail is the caller's business; this is the plain-screen default. */
 val DefaultListPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp)
@@ -202,8 +204,8 @@ fun CallLogListScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0F172A),
-                    titleContentColor = Color.White
+                    containerColor = TopBar,
+                    titleContentColor = Crm.Text
                 )
             )
         },
@@ -252,7 +254,7 @@ fun CallLogContent(
     Column(modifier = modifier) {
         PrimaryTabRow(
             selectedTabIndex = selectedTab.ordinal,
-            containerColor = Color(0xFF0F172A),
+            containerColor = TopBar,
             contentColor = Accent
         ) {
             CallLogTab.entries.forEach { tab ->
@@ -434,7 +436,7 @@ private fun WhatsAppButton(row: CallRow, onClick: () -> Unit) {
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(if (enabled) WhatsAppInk else Color(0xFF161E2E))
+            .background(if (enabled) WhatsAppInk else Crm.Surface2)
             .alpha(if (enabled) 1f else 0.38f)
             .semantics { contentDescription = description }
     ) {
@@ -451,10 +453,10 @@ private fun WhatsAppButton(row: CallRow, onClick: () -> Unit) {
 fun CallLogPermissionGate(onGrant: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1F1300),
+        color = Crm.WarnSurface,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color(0xFF92400E), RoundedCornerShape(12.dp))
+            .border(1.dp, Crm.Accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier
@@ -464,22 +466,22 @@ fun CallLogPermissionGate(onGrant: () -> Unit) {
         ) {
             Text(
                 "CALL LOG ACCESS REQUIRED",
-                color = Color(0xFFFBBF24),
+                color = Crm.Accent2,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.8.sp
             )
             Text(
                 "The list stays empty until READ_CALL_LOG is granted at runtime.",
-                color = Color(0xFFFDE68A),
+                color = Crm.Accent2.copy(alpha = 0.8f),
                 fontSize = 11.sp
             )
             Button(
                 onClick = onGrant,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB45309)),
+                colors = ButtonDefaults.buttonColors(containerColor = Crm.Accent),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Grant call log access", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Grant call log access", color = Crm.AccentInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -489,7 +491,7 @@ fun CallLogPermissionGate(onGrant: () -> Unit) {
 private fun NoticeCard(message: String) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = Color(0xFF10233A),
+        color = Crm.Surface2,
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(
@@ -511,7 +513,7 @@ private fun EmptyState(icon: ImageVector, title: String) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(30.dp))
+            Icon(icon, contentDescription = null, tint = Crm.Line, modifier = Modifier.size(30.dp))
             Text(title, color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
         }
     }

@@ -116,7 +116,11 @@ abstract class OverlayWindowService : Service(), LifecycleOwner, SavedStateRegis
     protected fun moveOverlayBy(deltaY: Float) {
         val params = layoutParams ?: return
         val view = overlayView ?: return
-        params.y = (params.y + deltaY).toInt().coerceAtLeast(0)
+        // y is measured from whichever edge the gravity names, so with BOTTOM it grows upward and
+        // a downward drag has to subtract - otherwise the bubble runs away from the finger.
+        val fromBottom = (params.gravity and Gravity.BOTTOM) == Gravity.BOTTOM
+        val step = if (fromBottom) -deltaY else deltaY
+        params.y = (params.y + step).toInt().coerceAtLeast(0)
         try {
             windowManager?.updateViewLayout(view, params)
         } catch (e: Exception) {

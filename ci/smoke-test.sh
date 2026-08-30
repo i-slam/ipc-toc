@@ -143,10 +143,12 @@ capture_bubble_screenshots() {
   : "${density:=160}"
 
   if [ -n "${width:-}" ] && [ -n "${height:-}" ]; then
-    # 30dp in from the edge, in pixels.
-    scale=$(( (30 * density) / 160 ))
+    # The bubble docks bottom-right now: its window sits 140px up from the bottom edge, and the
+    # toggle is 62dp across, so its centre is half of that in from the right and up from the top
+    # of the window.
+    scale=$(( (31 * density) / 160 ))
     tap_x=$((width - scale))
-    tap_y=$((320 + scale))
+    tap_y=$((height - 140 - scale))
     echo "-- screen ${width}x${height} @ ${density}dpi, tapping the bubble at ${tap_x},${tap_y}"
     adb shell input tap "$tap_x" "$tap_y"
     sleep 4
