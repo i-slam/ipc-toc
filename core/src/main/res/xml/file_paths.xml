@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only the inventory images are shareable. Nothing else in filesDir is exposed, so a bug in a
+  share intent cannot hand out the preferences or the call cache.
+-->
+<paths>
+    <files-path name="inventory" path="inventory/" />
+</paths>

@@ -115,6 +115,7 @@ class BubbleOverlayService : OverlayWindowService() {
         when (action) {
             BubbleAction.WHATSAPP_LAST_CALL -> whatsAppLastCall(record)
             BubbleAction.OPEN_CALL_LOG -> openCallLog()
+            BubbleAction.OPEN_INVENTORY -> openInventory(record)
             BubbleAction.COPY_LAST_CALL -> copyLastCall(record)
             BubbleAction.OPEN_DIALER -> openDialer()
             BubbleAction.OPEN_DIAGNOSTICS -> openDiagnosticsApp()
@@ -166,6 +167,16 @@ class BubbleOverlayService : OverlayWindowService() {
         } catch (e: Exception) {
             Log.w(TAG, "Could not open the call log: ${e.message}")
             toast("Could not open the call log")
+        }
+    }
+
+    /** Carries the caller through, so the grid already knows who the selection is going to. */
+    private fun openInventory(record: CallRecord?) {
+        try {
+            startActivity(BubbleActivity.inventoryIntent(this, record?.number, record?.displayName))
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not open the inventory: ${e.message}")
+            toast("Could not open the inventory")
         }
     }
 

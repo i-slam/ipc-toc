@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dialpad
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
@@ -58,6 +59,7 @@ import kotlinx.coroutines.withContext
 enum class BubbleAction {
     WHATSAPP_LAST_CALL,
     OPEN_CALL_LOG,
+    OPEN_INVENTORY,
     COPY_LAST_CALL,
     OPEN_DIALER,
     OPEN_DIAGNOSTICS,
@@ -71,6 +73,7 @@ object LastCall {
 
 private const val ARC_CALL = "call"
 private const val ARC_LIST = "list"
+private const val ARC_INVENTORY = "inventory"
 private const val ARC_DIALER = "dialer"
 private const val ARC_MORE = "more"
 
@@ -118,6 +121,7 @@ fun BubblePanel(
     val items = listOf(
         ArcItem(ARC_CALL, Icons.Default.Phone, "Last call and WhatsApp", badge = unseenCall),
         ArcItem(ARC_LIST, Icons.AutoMirrored.Filled.FormatListBulleted, "All calls"),
+        ArcItem(ARC_INVENTORY, Icons.Default.DirectionsCar, "Send from inventory"),
         ArcItem(ARC_DIALER, Icons.Default.Dialpad, "Dialer"),
         ArcItem(ARC_MORE, Icons.Default.Settings, "More actions")
     )
@@ -155,6 +159,11 @@ fun BubblePanel(
                     ARC_LIST -> {
                         expanded = false
                         onAction(BubbleAction.OPEN_CALL_LOG, lastCall)
+                    }
+
+                    ARC_INVENTORY -> {
+                        expanded = false
+                        onAction(BubbleAction.OPEN_INVENTORY, lastCall)
                     }
 
                     ARC_DIALER -> {
@@ -228,6 +237,12 @@ private fun ActionPanel(
                 tint = Crm.WhatsApp,
                 background = Crm.WhatsAppInk
             ) { onAction(BubbleAction.WHATSAPP_LAST_CALL) }
+
+            PanelButton(
+                label = "Send from inventory",
+                icon = Icons.Default.DirectionsCar,
+                tint = Crm.Accent
+            ) { onAction(BubbleAction.OPEN_INVENTORY) }
 
             PanelButton("All calls + WhatsApp", Icons.AutoMirrored.Filled.FormatListBulleted) {
                 onAction(BubbleAction.OPEN_CALL_LOG)

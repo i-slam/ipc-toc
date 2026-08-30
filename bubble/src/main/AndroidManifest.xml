@@ -45,6 +45,12 @@
                 <action android:name="com.example.bubble.action.CALL_LOG" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
+            <!-- The inventory grid, carrying the number the selection is going to. -->
+            <intent-filter>
+                <action android:name="com.example.bubble.action.INVENTORY" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <service

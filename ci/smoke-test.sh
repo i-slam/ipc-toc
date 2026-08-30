@@ -324,6 +324,62 @@ smoke_test_call_log() {
   return 1
 }
 
+# The inventory screen is new surface with a file store behind it, so the check is that it opens
+# and renders its empty state rather than crashing on a store that does not exist yet.
+smoke_test_inventory() {
+  local pkg="com.aistudio.ipcsolution.bubble"
+
+  echo
+  echo "== inventory =="
+
+  adb logcat -c || true
+  adb shell am start -a com.example.bubble.action.INVENTORY \
+    -n "$pkg/com.example.bubble.BubbleActivity" \
+    --es com.example.bubble.extra.NUMBER "+2348031234567" \
+    --es com.example.bubble.extra.NAME "CI_Missed_Caller"
+  sleep 7
+
+  if adb logcat -d -b crash | grep -q "FATAL EXCEPTION"; then
+    echo "RESULT[inventory]: FAIL - crashed opening the inventory"
+    adb logcat -d -b crash | head -60
+    return 1
+  fi
+
+  mkdir -p artifacts
+  adb exec-out screencap -p > artifacts/inventory.png 2>/dev/null || true
+
+  local dump=""
+  if adb shell uiautomator dump /sdcard/ui-inv.xml >/dev/null 2>&1; then
+    dump="$(adb shell cat /sdcard/ui-inv.xml 2>/dev/null || true)"
+  fi
+
+  if [ -z "$dump" ]; then
+    echo "RESULT[inventory]: PASS - opened without crashing (contents unverified)"
+    return 0
+  fi
+
+  # The caller carried through the intent is the whole point of opening it this way.
+  if echo "$dump" | grep -q "Sending to CI_Missed_Caller"; then
+    echo "-- the screen knows who the selection is for"
+  else
+    echo "-- WARNING: the caller did not carry through the intent"
+  fi
+
+  if echo "$dump" | grep -q "Nothing in the inventory yet"; then
+    echo "RESULT[inventory]: PASS - empty state rendered on a store that does not exist yet"
+    return 0
+  fi
+
+  if echo "$dump" | grep -q 'text="Inventory"'; then
+    echo "RESULT[inventory]: PASS - inventory rendered"
+    return 0
+  fi
+
+  echo "RESULT[inventory]: FAIL - the inventory screen never rendered"
+  echo "$dump" | grep -o 'text="[^"]*"' | sort -u | head -20
+  return 1
+}
+
 wait_for_device
 
 DEBUG_APK="artifacts/ipc-solution-poc-swiss-army-debug.apk"
@@ -359,6 +415,11 @@ if [ "$bubble_status" = pass ] && smoke_test_call_log; then
   call_log_status=pass
 fi
 
+inventory_status=fail
+if [ "$bubble_status" = pass ] && smoke_test_inventory; then
+  inventory_status=pass
+fi
+
 echo
 echo "=================================================================="
 echo "control (debug) : $debug_status"
@@ -366,10 +427,12 @@ echo "minified release: $slim_status"
 echo "floating rail   : $floating_status"
 echo "bubble app      : $bubble_status"
 echo "call log list   : $call_log_status"
+echo "inventory       : $inventory_status"
 echo "=================================================================="
 
 if [ "$slim_status" = pass ] && [ "$floating_status" = pass ] && \
-   [ "$bubble_status" = pass ] && [ "$call_log_status" = pass ]; then
+   [ "$bubble_status" = pass ] && [ "$call_log_status" = pass ] && \
+   [ "$inventory_status" = pass ]; then
   exit 0
 fi
 

@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.AppPrefs
 import com.example.ui.calllog.CallLogListScreen
+import com.example.ui.inventory.InventoryScreen
 
 /**
  * The only screen this app has: the recent calls, each one tap from a WhatsApp chat, with the
@@ -69,13 +72,29 @@ class BubbleActivity : ComponentActivity() {
             BubbleOverlayService.show(this)
         }
 
+        val openInventory = intent?.action == ACTION_INVENTORY
+        val sendToNumber = intent?.getStringExtra(EXTRA_NUMBER)
+        val sendToName = intent?.getStringExtra(EXTRA_NAME)
+
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
-                CallLogListScreen(
-                    title = "Floating Button",
-                    subtitle = "Recent calls · tap the green button to message",
-                    header = { BubbleSetupCard() }
-                )
+                var showInventory by rememberSaveable { mutableStateOf(openInventory) }
+
+                BackHandler(enabled = showInventory) { showInventory = false }
+
+                if (showInventory) {
+                    InventoryScreen(
+                        sendToNumber = sendToNumber,
+                        sendToName = sendToName,
+                        onBack = { showInventory = false }
+                    )
+                } else {
+                    CallLogListScreen(
+                        title = "Floating Button",
+                        subtitle = "Recent calls · tap the green button to message",
+                        header = { BubbleSetupCard(onOpenInventory = { showInventory = true }) }
+                    )
+                }
             }
         }
     }
@@ -86,9 +105,22 @@ class BubbleActivity : ComponentActivity() {
         /** Opens this screen from the bubble; the list is what the activity shows either way. */
         const val ACTION_CALL_LOG = "com.example.bubble.action.CALL_LOG"
 
+        /** Opens the inventory grid, aimed at whoever just called. */
+        const val ACTION_INVENTORY = "com.example.bubble.action.INVENTORY"
+        const val EXTRA_NUMBER = "com.example.bubble.extra.NUMBER"
+        const val EXTRA_NAME = "com.example.bubble.extra.NAME"
+
         fun callLogIntent(context: Context): Intent =
             Intent(context, BubbleActivity::class.java).apply {
                 action = ACTION_CALL_LOG
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+
+        fun inventoryIntent(context: Context, number: String?, name: String?): Intent =
+            Intent(context, BubbleActivity::class.java).apply {
+                action = ACTION_INVENTORY
+                putExtra(EXTRA_NUMBER, number)
+                putExtra(EXTRA_NAME, name)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
     }
@@ -96,7 +128,7 @@ class BubbleActivity : ComponentActivity() {
 
 /** Overlay grant, bubble on/off - everything this app needs before the button can exist. */
 @Composable
-private fun BubbleSetupCard() {
+private fun BubbleSetupCard(onOpenInventory: () -> Unit) {
     val context = LocalContext.current
     val isShowing by BubbleOverlayService.isShowing.collectAsStateWithLifecycle()
 
@@ -201,6 +233,20 @@ private fun BubbleSetupCard() {
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF2C3542))
+                    .clickable { onOpenInventory() }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Inventory", color = Color(0xFFE9ECF2), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("Manage \u203a", color = Color(0xFFFF8A3D), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
 
             Text(
