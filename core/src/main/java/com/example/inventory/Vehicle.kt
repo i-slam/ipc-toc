@@ -30,11 +30,18 @@ data class Vehicle(
 ) {
     val isAvailable: Boolean get() = status == STATUS_AVAILABLE
 
-    /** "Dacia Duster 2019", or just the make and model when the year is missing. */
+    /**
+     * "Dacia Duster 2019", or as much of it as the row actually has.
+     *
+     * A model written as a parenthetical note - "(model unspecified)" - is someone recording that
+     * they did not know it, not a model name, so it is dropped rather than read out on the card.
+     */
     val title: String
-        get() = listOfNotNull(make.trim().ifBlank { null }, model.trim().ifBlank { null }, year?.toString())
-            .joinToString(" ")
-            .ifBlank { "Untitled vehicle" }
+        get() = listOfNotNull(
+            make.trim().ifBlank { null },
+            model.trim().takeIf { it.isNotBlank() && !it.startsWith("(") },
+            year?.toString()
+        ).joinToString(" ").ifBlank { "Untitled vehicle" }
 
     /** The price actually on offer, which is not always the list price. */
     val effectivePrice: Double? get() = if (specialOffer) offerPriceMad ?: priceMad else priceMad
@@ -159,9 +166,20 @@ internal object VehicleJson {
         )
     }
 
-    /** org.json turns SQL nulls into the string "null", which is not a colour or a fuel type. */
-    private fun JSONObject.string(key: String): String? =
-        if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() && it != "null" }
+    /**
+     * org.json turns SQL nulls into the string "null", which is not a colour or a fuel type.
+     *
+     * Rows are filled in by hand, so a blank is as often a dash or an "n/a" as it is an actual
+     * null. Those are missing values wearing a costume: left alone they put a lone "—" on a card
+     * where the specs should be.
+     */
+    private fun JSONObject.string(key: String): String? {
+        if (isNull(key)) return null
+        val value = optString(key).trim()
+        return value.takeIf { it.isNotBlank() && it.lowercase() !in PLACEHOLDERS }
+    }
+
+    private val PLACEHOLDERS = setOf("null", "-", "--", "\u2013", "\u2014", "n/a", "na", "none", "?", ".")
 
     private fun JSONObject.int(key: String): Int? = if (isNull(key)) null else optInt(key).takeIf {
         it != 0 || optString(key) == "0"

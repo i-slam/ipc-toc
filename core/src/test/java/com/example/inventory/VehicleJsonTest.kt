@@ -125,6 +125,40 @@ class VehicleJsonTest {
         val v = Vehicle(id = "v7", make = "Kia", model = "Rio", color = "White")
         assertEquals("White", v.specLine)
     }
+
+    /**
+     * Real rows from the live table. Fields are typed in by hand, so a dash is how people write
+     * "I do not know" - and read literally it puts a lone em dash on the card where the specs go.
+     */
+    @Test
+    fun `hand-entered placeholders count as missing, not as values`() {
+        val raw = """[{"id":"v8","make":"Land Rover","model":"Range Rover Sport","color":"\u2014",
+                      "transmission":"-","fuel_type":"N/A","location":"none","status":"available"}]"""
+
+        val v = VehicleJson.decode(raw).single()
+
+        assertNull(v.color)
+        assertNull(v.transmission)
+        assertNull(v.fuelType)
+        assertNull(v.location)
+        assertEquals("", v.specLine)
+    }
+
+    @Test
+    fun `a model recorded as a parenthetical note is left off the title`() {
+        val raw = """[{"id":"v9","make":"Volvo","model":"(model unspecified)","year":2013,
+                      "status":"sold"}]"""
+
+        assertEquals("Volvo 2013", VehicleJson.decode(raw).single().title)
+    }
+
+    @Test
+    fun `a real model in brackets is not confused with a placeholder`() {
+        // Only a leading bracket is treated as a note; a bracket later in the name is a trim level.
+        val raw = """[{"id":"v10","make":"BMW","model":"1 Series Coupe (E82)","status":"available"}]"""
+
+        assertEquals("BMW 1 Series Coupe (E82)", VehicleJson.decode(raw).single().title)
+    }
 }
 
 class VehicleFormatTest {
