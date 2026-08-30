@@ -38,11 +38,19 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** How far the fan spreads. Offered as a setting, because which one reads better depends on
- *  where the bubble has been dragged to. */
+/**
+ * How far the fan spreads. Offered as a setting, because which one reads better depends on where
+ * the bubble has been dragged to.
+ *
+ * Both sweeps stay inside the quadrant between straight up and straight left. The concept draws
+ * a 180-degree fan, but its bubble is inset from the corner; docked against the screen edge the
+ * way this one is, anything past vertical goes off the right of the screen and anything past
+ * horizontal goes off the bottom. So the wider style reaches further out rather than further
+ * round.
+ */
 enum class ArcStyle(val label: String, val sweepDegrees: Float, val radius: Dp) {
-    TIGHT("90° tight", 90f, 84.dp),
-    WIDE("180° full sweep", 120f, 104.dp)
+    TIGHT("Tight", 64f, 84.dp),
+    WIDE("Wide", 84f, 106.dp)
 }
 
 data class ArcItem(
@@ -225,7 +233,9 @@ internal fun arcOffsets(
 ): List<IntOffset> {
     if (count == 0) return emptyList()
 
-    val start = CENTRE_DEGREES - style.sweepDegrees / 2f
+    // One item has no sweep to spread over, so it belongs in the middle of the arc rather than at
+    // the end where it started.
+    val start = if (count == 1) CENTRE_DEGREES else CENTRE_DEGREES - style.sweepDegrees / 2f
     val step = if (count == 1) 0f else style.sweepDegrees / (count - 1)
 
     return List(count) { index ->

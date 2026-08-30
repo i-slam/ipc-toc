@@ -55,9 +55,11 @@ class GooeyArcMenuTest {
         val half = arcOffsets(4, ArcStyle.WIDE, radius, progress = 0.5f)
         val full = arcOffsets(4, ArcStyle.WIDE, radius, progress = 1f)
 
+        // Two pixels: integer division truncates toward zero while the offsets round to nearest,
+        // so the two disagree by one on odd values before any real drift.
         half.forEachIndexed { i, offset ->
-            assertClose("x[$i]", full[i].x / 2, offset.x)
-            assertClose("y[$i]", full[i].y / 2, offset.y)
+            assertClose("x[$i]", full[i].x / 2, offset.x, tolerance = 2)
+            assertClose("y[$i]", full[i].y / 2, offset.y, tolerance = 2)
         }
     }
 
