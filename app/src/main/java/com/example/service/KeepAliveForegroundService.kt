@@ -22,6 +22,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.MainActivity
+import com.example.data.AppPrefs
 import com.example.data.EventSource
 import com.example.data.LogEventBus
 import com.example.telephony.CallStateMonitor
@@ -82,6 +83,8 @@ class KeepAliveForegroundService : Service() {
                     action = "Stop Requested",
                     details = "Stopping KeepAliveForegroundService"
                 )
+                // Only an explicit stop disarms: a system kill must still restart after boot.
+                AppPrefs.setArmed(this, false)
                 stopForegroundService()
                 return START_NOT_STICKY
             }
@@ -121,6 +124,7 @@ class KeepAliveForegroundService : Service() {
             else -> {
                 startForegroundWithNotification()
                 _isRunning.value = true
+                AppPrefs.setArmed(this, true)
                 LogEventBus.log(
                     source = EventSource.DIRECT_SERVICE,
                     action = "Service Started",
@@ -218,13 +222,15 @@ class KeepAliveForegroundService : Service() {
     private fun startForegroundWithNotification() {
         val notification = buildNotification()
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Same subset rule as the overlay service: the manifest declares specialUse|phoneCall,
+            // so DATA_SYNC was never allowed here and the typed call threw on Android 10 to 13.
+            // The two-argument call uses the manifest's own set, which is exactly what is wanted.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                } else {
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                }
-                startForeground(NOTIFICATION_ID, notification, serviceType)
+                )
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
@@ -256,6 +262,17 @@ class KeepAliveForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val lastCallIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra(MainActivity.EXTRA_OPEN_LAST_CALL, true)
+        }
+        val lastCallPendingIntent = PendingIntent.getActivity(
+            this,
+            2,
+            lastCallIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("IPC Keep-Alive & Call Monitor Active")
             .setContentText("Listening for background events & phone calls")
@@ -268,6 +285,11 @@ class KeepAliveForegroundService : Service() {
                 android.R.drawable.ic_dialog_info,
                 "Test Popup",
                 directTriggerPendingIntent
+            )
+            .addAction(
+                android.R.drawable.ic_menu_call,
+                "Last Call",
+                lastCallPendingIntent
             )
             .build()
     }

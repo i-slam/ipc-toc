@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -34,6 +35,26 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Long-press the launcher icon for Last Call / popup / arm -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- Invisible trampoline behind the shortcuts and tiles -->
+        <activity
+            android:name=".QuickActionActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="com.example.action.QUICK_SHOW_POPUP" />
+                <action android:name="com.example.action.QUICK_ARM" />
+                <action android:name="com.example.action.QUICK_LAST_CALL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- Static Manifest Receiver (Subject to Transsion BroadcastQueue background checks) -->
@@ -51,6 +72,39 @@
             android:name=".receiver.AlarmPingReceiver"
             android:exported="false" />
 
+        <!-- Restores the engine after a reboot when it was armed -->
+        <receiver
+            android:name=".receiver.BootCompletedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick settings tiles: toggle the engine, or jump to Last Call, from the shade -->
+        <service
+            android:name=".service.KeepAliveTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_bolt"
+            android:label="@string/tile_keep_alive"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".service.LastCallTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_call"
+            android:label="@string/tile_last_call"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Overlay Service - Same Process -->
         <service
             android:name=".service.SameProcessOverlayService"
@@ -61,6 +115,16 @@
             android:name=".service.SeparateProcessOverlayService"
             android:exported="false"
             android:process=":overlay" />
+
+        <!-- System-wide floating rail: the bubble that sits above every app -->
+        <service
+            android:name=".service.FloatingRailService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the floating diagnostic tool bubble on screen" />
+        </service>
 
         <!-- Always-on Foreground Service with Special Use & Phone Call types -->
         <service

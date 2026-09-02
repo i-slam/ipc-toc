@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">IPC Solution PoC</string>
+
+    <!-- Launcher shortcuts (long-press the app icon) -->
+    <string name="shortcut_last_call_short">Last call</string>
+    <string name="shortcut_last_call_long">Last Call Info</string>
+    <string name="shortcut_popup_short">Show popup</string>
+    <string name="shortcut_popup_long">Trigger the overlay popup</string>
+    <string name="shortcut_arm_short">Arm engine</string>
+    <string name="shortcut_arm_long">Arm the call-end pipeline</string>
+
+    <!-- Quick settings tiles -->
+    <string name="tile_keep_alive">IPC engine</string>
+    <string name="tile_last_call">Last call</string>
 </resources>

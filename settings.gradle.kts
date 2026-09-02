@@ -25,3 +25,5 @@ dependencyResolutionManagement {
 rootProject.name = "IPC Solution PoC"
 
 include(":app")
+include(":core")
+include(":bubble")

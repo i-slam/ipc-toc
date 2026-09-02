@@ -1,6 +1,5 @@
 package com.example.data
 
-import android.os.Build
 import android.os.Process
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,11 +20,7 @@ object LogEventBus {
         details: String,
         isSuccess: Boolean = true
     ) {
-        val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            Process.myProcessName()
-        } else {
-            "pid_${Process.myPid()}"
-        }
+        val processName = ProcessInfo.currentProcessName()
         val pid = Process.myPid()
         val threadName = Thread.currentThread().name
 
