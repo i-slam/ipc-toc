@@ -116,6 +116,40 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # The standalone project is handed out as a zip, so "it compiles" has to be a fact rather than
+  # an assumption. The last hand-made copy shipped without a signing config and had never been
+  # built; this generates it from the live sources and builds what it produces.
+  standalone:
+    name: Build the standalone floating-button project
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate it
+        run: bash ci/make-standalone.sh
+
+      - name: Build it on its own
+        working-directory: build/standalone/floating-button
+        run: ./gradlew :bubble:assembleRelease --stacktrace
+
+      - name: Report what came out
+        working-directory: build/standalone/floating-button
+        run: |
+          ls -l bubble/build/outputs/apk/release/
+          echo "### Standalone APK" >> "$GITHUB_STEP_SUMMARY"
+          du -h bubble/build/outputs/apk/release/*.apk >> "$GITHUB_STEP_SUMMARY"
+
   smoke-test:
     name: Launch the minified APK on an emulator
     needs: build
